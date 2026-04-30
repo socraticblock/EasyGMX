@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 node_modules
 /.pnp
@@ -30,25 +28,43 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
 
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-local-*
+
+# logs
+*.log
+server.log
+
+# platform / internal
 .claude
 .z-ai-config
-*.log
-dev.log
-dev.out.log
+.zscripts/
+local-*
 test
 prompt
 
-server.log
-# Skills directory
+# skills (not part of the project)
 /skills/
+
+# database (local only)
+/db/
+
+# download directory (generated files)
+/download/
+
+# mini-services (not part of the project)
+/mini-services/
+
+# prisma (not needed for this frontend-only project)
+/prisma/
+
+# internal artifacts
+/upload/
+/worklog.md
