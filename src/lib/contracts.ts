@@ -75,12 +75,12 @@ export const DECREASE_POSITION_SWAP_TYPE = {
 } as const
 
 // ─── Precision ─────────────────────────────────────────────
-// GMX V2 uses 30 decimals for all USD-denominated values
-
-export const USD_DECIMALS = 30n
+// GMX V2 uses 30-decimal fixed point values for USD-denominated amounts.
+export const USD_PRECISION = 10n ** 30n
+export const USD_TO_USDC_SCALE = 10n ** 24n
 
 export function toUsd(amount: number): bigint {
-  return BigInt(Math.round(amount * 1e6)) * (USD_DECIMALS / 1_000_000n)
+  return BigInt(Math.round(amount * 1e6)) * USD_TO_USDC_SCALE
 }
 
 export function toTokenRaw(amount: number, decimals: number): bigint {
@@ -89,7 +89,7 @@ export function toTokenRaw(amount: number, decimals: number): bigint {
 }
 
 export function fromUsd(raw: bigint): number {
-  return Number(raw / (USD_DECIMALS / 1_000_000n)) / 1e6
+  return Number(raw / USD_TO_USDC_SCALE) / 1e6
 }
 
 export function fromTokenRaw(raw: bigint, decimals: number): number {

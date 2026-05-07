@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { getGmxSdk } from "./gmxSdk"
 import { withGmxRetry } from "./gmxRetry"
 import { fetchCandles } from "./gmxCandles"
-import { MARKET_LIST, type MarketKey } from "./contracts"
+import { MARKET_LIST, USD_PRECISION, type MarketKey } from "./contracts"
 
 export interface EasyMarket {
   marketKey: MarketKey
@@ -27,12 +27,10 @@ export interface EasyMarket {
   availableLiquidityShortUsd?: number
 }
 
-const USD_PRECISION = 1e30
-
 export function usd30ToNumber(value: bigint | string | number | undefined): number {
   if (value === undefined) return 0
   const raw = typeof value === "bigint" ? value : BigInt(value)
-  return Number(raw) / USD_PRECISION
+  return Number(raw) / Number(USD_PRECISION)
 }
 
 function bpsToPercent(value: bigint | string | number | undefined): number {
@@ -51,12 +49,10 @@ function percentChange(current: number, previous: number): number {
 }
 
 async function candleChange(marketKey: MarketKey, period: "4H" | "30D" | "1Y"): Promise<number> {
-  const timeframe = period === "4H" ? "1h" : "1D"
-  const candles = await fetchCandles(marketKey, timeframe)
+  const candles = await fetchCandles(marketKey, period === "4H" ? "4h" : period)
   if (candles.length < 2) return 0
   const latest = candles[candles.length - 1]
-  const lookback = period === "4H" ? 4 : period === "30D" ? 30 : 365
-  const previous = candles[Math.max(0, candles.length - 1 - lookback)]
+  const previous = candles[0]
   return percentChange(latest.close, previous.close)
 }
 
