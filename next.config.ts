@@ -3,7 +3,9 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
-  // Remove ignoreBuildErrors — we want real type checking
+  turbopack: {
+    root: __dirname,
+  },
 }
 
 export default nextConfig

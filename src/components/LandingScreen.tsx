@@ -1,8 +1,6 @@
 "use client"
 
-import { useAccount, useBalance } from "wagmi"
 import { ConnectKitButton } from "connectkit"
-import { TOKENS, MARKET_LIST } from "@/lib/contracts"
 
 export function LandingScreen() {
   return (
@@ -17,7 +15,10 @@ export function LandingScreen() {
             Easy<span className="text-[#418cf5]">GMX</span>
           </h1>
           <p className="text-base text-muted-foreground leading-relaxed max-w-xs mx-auto">
-            Trade perpetuals in 4 clicks. No complexity, real positions, real P&amp;L.
+            Real GMX trades. Made simple.
+          </p>
+          <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-xs mx-auto">
+            Choose Price Up or Price Down, risk a fixed amount, and watch your trade live.
           </p>
         </div>
 
@@ -29,7 +30,7 @@ export function LandingScreen() {
           {([
             ["4 clicks", "to trade"],
             ["5x / 10x", "preset leverage"],
-            ["Gasless", "one-click mode"],
+            ["GMX V2", "real positions"],
           ] as const).map(([title, sub]) => (
             <div key={title} className="space-y-1">
               <div className="text-sm font-semibold">{title}</div>
@@ -41,7 +42,7 @@ export function LandingScreen() {
         <div className="pt-4 space-y-2">
           <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
             Simplified interface to GMX V2 on Arbitrum. All trades are real leveraged positions.
-            You can lose your entire investment. Not financial advice.
+            You can lose your full risk amount. Not financial advice.
           </p>
           <a
             href="https://app.gmx.io"

@@ -41,9 +41,9 @@ export const TOKEN_DECIMALS: Record<string, number> = {
 // These are market token addresses, used as the `market` param in CreateOrderParams
 
 export const MARKETS = {
-  "ETH/USD": "0x70d95539653b3d7285587a6B7aE5565DA9cF4c1D",
-  "BTC/USD": "0x4793697C2462A1E4b0b1985D6F7a5030B6600E3c",
-  "SOL/USD": "0x3193c45D49C07DB9bE9Fb13e6e7e7e5A0b4a1c51",
+  "ETH/USD": "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336",
+  "BTC/USD": "0x47c031236e19d024b42f8AE6780E44A573170703",
+  "SOL/USD": "0x09400D9DB990D5ed3f35D7be61DfAEB900Af03C9",
   "ARB/USD": "0xC25cEf6061Cf5dE5eb761b50E4743c1F5D7E5407",
 } as const
 
@@ -105,17 +105,24 @@ export interface MarketInfo {
   key: MarketKey
   address: string
   symbol: string
+  apiSymbol: string
   icon: string
   collateralToken: string
   collateralDecimals: number
 }
 
 export const MARKET_LIST: MarketInfo[] = [
-  { key: "ETH/USD", address: MARKETS["ETH/USD"], symbol: "ETH", icon: "\u27E2", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "BTC/USD", address: MARKETS["BTC/USD"], symbol: "BTC", icon: "\u20BF", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "SOL/USD", address: MARKETS["SOL/USD"], symbol: "SOL", icon: "\u25CE", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "ARB/USD", address: MARKETS["ARB/USD"], symbol: "ARB", icon: "\u25C6", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "ETH/USD", address: MARKETS["ETH/USD"], symbol: "ETH", apiSymbol: "ETH/USD [WETH-USDC]", icon: "\u27E2", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "BTC/USD", address: MARKETS["BTC/USD"], symbol: "BTC", apiSymbol: "BTC/USD [BTC-USDC]", icon: "\u20BF", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "SOL/USD", address: MARKETS["SOL/USD"], symbol: "SOL", apiSymbol: "SOL/USD [SOL-USDC]", icon: "\u25CE", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "ARB/USD", address: MARKETS["ARB/USD"], symbol: "ARB", apiSymbol: "ARB/USD [ARB-USDC]", icon: "\u25C6", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
 ]
+
+export const MIN_RISK_USD = 10
+export const MAX_RISK_USD = 1_000
+export const DEFAULT_RISK_USD = 10
+export const DEFAULT_LEVERAGE = 5 as const
+export const MAX_UINT256 = (1n << 256n) - 1n
 
 // ─── Slippage ──────────────────────────────────────────────
 
@@ -132,3 +139,19 @@ export function applySlippage(price: number, isLong: boolean): bigint {
 // Approximate keeper fee on Arbitrum (check GMX API for current value)
 
 export const DEFAULT_EXECUTION_FEE_ETH = 0.0001 // ~0.0001 ETH
+
+export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000" as const
+
+export function getGmxReferralCodeBytes32(): `0x${string}` {
+  const code = process.env.NEXT_PUBLIC_GMX_REFERRAL_CODE?.trim()
+  if (!code) return ZERO_BYTES32
+
+  if (/^0x[0-9a-fA-F]{64}$/.test(code)) {
+    return code as `0x${string}`
+  }
+
+  const bytes = new TextEncoder().encode(code)
+  if (bytes.length > 32) return ZERO_BYTES32
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0")
+  return `0x${hex}`
+}

@@ -7,22 +7,17 @@ import { MarketSelectScreen } from "@/components/MarketSelectScreen"
 import { TradeSetupScreen } from "@/components/TradeSetupScreen"
 import { OrderPendingScreen } from "@/components/OrderPendingScreen"
 import { PositionLiveScreen } from "@/components/PositionLiveScreen"
+import { TradeClosedScreen } from "@/components/TradeClosedScreen"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { WalletDisconnectGuard } from "@/components/WalletDisconnectGuard"
 
 export default function EasyGMX() {
   const { isConnected } = useAccount()
-  const { selectedMarket, activePosition, orderPhase } = useTradeStore()
-
-  // Screen routing:
-  // 1. Not connected → Landing
-  // 2. Connected, no market → Market Select
-  // 3. Market selected, no position → Trade Setup
-  // 4. Order submitted, waiting for keeper → Order Pending
-  // 5. Position active → Position Live
+  const { selectedMarket, activePosition, orderPhase, lastClosedTrade } = useTradeStore()
 
   const screen = (() => {
     if (!isConnected) return <LandingScreen />
+    if (lastClosedTrade) return <TradeClosedScreen />
     if (activePosition && orderPhase === "keeper") return <OrderPendingScreen />
     if (activePosition) return <PositionLiveScreen />
     if (selectedMarket) return <TradeSetupScreen />
