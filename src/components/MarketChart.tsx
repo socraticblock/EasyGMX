@@ -21,6 +21,7 @@ export function MarketChart({
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null)
+  const entryLineRef = useRef<ReturnType<ISeriesApi<"Area">["createPriceLine"]> | null>(null)
   const { data: candles = [], isLoading, error } = useMarketCandles(marketKey, timeframe)
 
   useEffect(() => {
@@ -70,8 +71,12 @@ export function MarketChart({
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current) return
     seriesRef.current.setData(candles.map((c) => ({ time: c.time as any, value: c.close })))
+    if (entryLineRef.current) {
+      seriesRef.current.removePriceLine(entryLineRef.current)
+      entryLineRef.current = null
+    }
     if (entryPrice && entryPrice > 0) {
-      seriesRef.current.createPriceLine({
+      entryLineRef.current = seriesRef.current.createPriceLine({
         price: entryPrice,
         color: "#7d809260",
         lineWidth: 1,

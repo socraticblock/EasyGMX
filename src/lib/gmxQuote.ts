@@ -1,4 +1,4 @@
-import { MAX_RISK_USD, MIN_RISK_USD, type MarketKey } from "./contracts"
+import { DEFAULT_EXECUTION_FEE_ETH, MAX_RISK_USD, MIN_RISK_USD, type MarketKey } from "./contracts"
 import type { EasyMarket } from "./gmxMarketData"
 
 export type TradeDirection = "up" | "down"
@@ -57,8 +57,9 @@ export function buildEasyTradeQuote(params: {
   leverage: 5 | 10
   usdcBalance: number
   ethBalance: number
+  hasExistingSameDirectionPosition?: boolean
 }): EasyTradeQuote | null {
-  const { market, direction, riskUsd, leverage, usdcBalance, ethBalance } = params
+  const { market, direction, riskUsd, leverage, usdcBalance, ethBalance, hasExistingSameDirectionPosition } = params
   if (!market) return null
 
   const isLong = directionToIsLong(direction)
@@ -66,8 +67,9 @@ export function buildEasyTradeQuote(params: {
   const availableLiquidity = isLong ? market.availableLiquidityLongUsd : market.availableLiquidityShortUsd
   let cannotTradeReason =
     validateRiskUsd(riskUsd, usdcBalance) ||
+    (hasExistingSameDirectionPosition ? "You already have this GMX trade open. Close it before starting another in the same direction." : null) ||
     (!market.isAvailable ? market.unavailableReason || "This trade is not available right now." : null) ||
-    (ethBalance <= 0.00005 ? "You need a small amount of ETH on Arbitrum to pay network and execution costs." : null) ||
+    (ethBalance < DEFAULT_EXECUTION_FEE_ETH ? "You need a small amount of ETH on Arbitrum to pay network and execution costs." : null) ||
     (market.price <= 0 ? "Price data is not available right now." : null) ||
     (availableLiquidity !== undefined && availableLiquidity < sizeUsd ? "This trade is not available right now. Try a smaller amount or another market." : null)
 

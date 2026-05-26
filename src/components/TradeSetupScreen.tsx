@@ -9,6 +9,7 @@ import { useUsdcApproval, useCreateOrder, userFacingGmxError } from "@/lib/order
 import { useUsdcBalance } from "@/hooks/useUsdcBalance"
 import { useEasyMarkets } from "@/lib/gmxMarketData"
 import { buildEasyTradeQuote } from "@/lib/gmxQuote"
+import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
 import { MarketChart } from "@/components/MarketChart"
 
 function formatUsd(n: number): string {
@@ -30,8 +31,14 @@ export function TradeSetupScreen() {
   const { balance } = useUsdcBalance(address)
   const { data: ethBalance } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
   const { data: markets } = useEasyMarkets()
+  const { data: walletPositions } = useEasyPositions(address)
   const marketInfo = MARKET_LIST.find((m) => m.key === store.selectedMarket)
   const market = store.selectedMarket ? markets?.[store.selectedMarket] : undefined
+  const isLong = direction === "up"
+  const hasExistingSameDirectionPosition = !!(marketInfo && walletPositions && findMatchingPosition(walletPositions, {
+    marketAddress: marketInfo.address,
+    isLong,
+  }))
   const quote = buildEasyTradeQuote({
     market,
     direction,
@@ -39,8 +46,8 @@ export function TradeSetupScreen() {
     leverage,
     usdcBalance: balance.value,
     ethBalance: ethBalance ? Number(ethBalance.value) / 1e18 : 0,
+    hasExistingSameDirectionPosition,
   })
-  const isLong = direction === "up"
   const collateralRaw = BigInt(Math.round(riskUsd * 1e6))
   const approval = useUsdcApproval(collateralRaw, approveAll)
   const createOrder = useCreateOrder()

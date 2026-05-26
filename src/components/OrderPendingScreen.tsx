@@ -2,7 +2,7 @@
 
 import { useAccount } from "wagmi"
 import { useTradeStore } from "@/lib/store"
-import { useOrderStatus, arbiscanTxLink } from "@/lib/order"
+import { arbiscanTxLink } from "@/lib/order"
 import { MARKET_LIST } from "@/lib/contracts"
 import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
 import { useEffect, useState } from "react"
@@ -10,7 +10,6 @@ import { useEffect, useState } from "react"
 export function OrderPendingScreen() {
   const { address } = useAccount()
   const { activePosition, setOrderPhase, updateActivePosition, setOrderError } = useTradeStore()
-  const { data: orderStatus } = useOrderStatus(activePosition?.orderKey)
   const { data: positions } = useEasyPositions(address, activePosition)
   const [startedAt] = useState(() => Date.now())
 
@@ -29,15 +28,10 @@ export function OrderPendingScreen() {
   }, [positions, activePosition, updateActivePosition, setOrderPhase])
 
   useEffect(() => {
-    if (orderStatus === "executed" && activePosition) {
-      setOrderPhase("confirmed")
-    }
-  }, [orderStatus, activePosition, setOrderPhase])
-
-  useEffect(() => {
     const id = setInterval(() => {
       if (Date.now() - startedAt > 75_000) {
         setOrderError("GMX is taking longer than expected to confirm this trade. Check GMX or Arbiscan before trying again.")
+        useTradeStore.getState().setActivePosition(null)
         clearInterval(id)
       }
     }, 5_000)

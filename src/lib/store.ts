@@ -61,6 +61,14 @@ function clampRiskUsd(value: number): number {
   return Math.max(0, Math.min(MAX_RISK_USD, Math.round(value * 100) / 100))
 }
 
+function hasMeaningfulChange<T extends object>(current: T, next: T): boolean {
+  const keys = new Set([...Object.keys(current), ...Object.keys(next)])
+  for (const key of keys) {
+    if (!Object.is((current as Record<string, unknown>)[key], (next as Record<string, unknown>)[key])) return true
+  }
+  return false
+}
+
 export const useTradeStore = create<TradeState>((set, get) => ({
   ...INITIAL,
 
@@ -79,7 +87,8 @@ export const useTradeStore = create<TradeState>((set, get) => ({
   updateActivePosition: (partial) => {
     const pos = get().activePosition
     if (!pos) return
-    set({ activePosition: { ...pos, ...partial } })
+    const next = { ...pos, ...partial }
+    if (hasMeaningfulChange(pos, next)) set({ activePosition: next })
   },
   setLastClosedTrade: (p) => set({ lastClosedTrade: p }),
   reset: () => set(INITIAL),
