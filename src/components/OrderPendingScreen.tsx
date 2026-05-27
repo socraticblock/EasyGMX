@@ -7,14 +7,12 @@ import { MARKET_LIST } from "@/lib/contracts"
 import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
 import { useEffect, useState } from "react"
 import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
-import { useOrderStatus } from "@/lib/order"
 
 export function OrderPendingScreen() {
   const { address } = useAccount()
   const { activePosition, setOrderPhase, updateActivePosition, setOrderError } = useTradeStore()
   const { data: positions } = useEasyPositions(address, activePosition)
   const [startedAt] = useState(() => Date.now())
-  const orderStatus = useOrderStatus(activePosition?.orderKey ?? null)
 
   const marketInfo = MARKET_LIST.find((m) => m.key === activePosition?.marketKey)
   const isLong = activePosition?.isLong ?? true
@@ -57,7 +55,7 @@ export function OrderPendingScreen() {
           <h2 className="text-xl font-bold">Opening your {marketInfo?.symbol} {directionLabel} trade...</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             GMX is confirming your trade. This usually takes a few seconds.
-            {orderStatus.data === "pending" ? " Keeper is executing your order." : ""}
+            {activePosition?.openTxHash ? " A keeper is executing your order." : ""}
           </p>
         </div>
 

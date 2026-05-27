@@ -17,10 +17,10 @@ EasyGMX opens **real** GMX V2 positions on Arbitrum. Automated agents cannot sig
 | Quote | `gmxQuote.ts`, `useGmxExecutionFee` | Risk, liquidation, fee range, dynamic execution ETH |
 | Approve | `useUsdcApproval` in `order.ts` | Exact or max USDC allowance |
 | Open | `useCreateOrder` | multicall: sendTokens → sendWnt → createOrder (MarketIncrease) |
-| Pending | `OrderPendingScreen` | Polls positions; 75s timeout; `useOrderStatus` for keeper |
+| Pending | `OrderPendingScreen` | Position polling confirms trade; 75s timeout |
 | Live | `PositionLiveScreen` | Chart, P&amp;L merge, full close |
 | Close | `useClosePosition` | MarketDecrease + execution fee from API |
-| Errors | `userFacingGmxError` | Wallet reject, allowance, ETH, price messages |
+| Errors | `userFacingGmxError` | Wallet reject, allowance, ETH, execution fee, price messages |
 
 ## Manual test checklist
 

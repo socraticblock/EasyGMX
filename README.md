@@ -48,6 +48,19 @@ npm run dev
 
 Open http://localhost:3000
 
+## Environment variables
+
+Set in `.env.local` for development and in **Vercel → Project → Settings → Environment Variables** for production.
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NEXT_PUBLIC_GMX_REFERRAL_CODE` | Recommended | GMX referral code (case-sensitive, max 20 chars). Verify with `npm run check:gmx-referral`. |
+| `NEXT_PUBLIC_WC_PROJECT_ID` | Optional | WalletConnect project ID for mobile wallets |
+| `NEXT_PUBLIC_RPC_URL` | Optional | Arbitrum RPC (defaults to public Arbitrum RPC) |
+| `NEXT_PUBLIC_GMX_EXPRESS_ENABLED` | Optional | `true` enables Express dry-run research only; trades stay Classic |
+
+V1 does **not** use sponsor wallets, cost coverage, or free-trade infrastructure.
+
 ## What You Need
 
 - A browser wallet (MetaMask, Coinbase, etc.) connected to **Arbitrum**

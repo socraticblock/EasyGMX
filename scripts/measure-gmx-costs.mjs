@@ -87,8 +87,8 @@ ${MARKETS.map((m) => {
 | 5 | Refund recipient | Trader \`account\` on the GMX request (per GMX docs) |
 | 6 | Average refund leakage | Requires tx receipt diff (max fee − keeper gas); not measured here |
 | 7 | Round-trip cost (est.) | ~${roundTripEth.toFixed(6)} ETH (~$${(roundTripEth * ethPrice).toFixed(2)} illustrative) |
-| 8 | Referral income per $1,000 notional (5% tier, illustrative) | ~$${referralPer1k.toFixed(4)} on eligible open+close position fees |
-| 9 | Break-even notional (illustrative) | ${breakEvenNotional ? `~$${Math.round(breakEvenNotional).toLocaleString()}` : "n/a"} |
+| 8 | Referral income per $1,000 notional (5% tier, illustrative) | ~$${referralPer1k.toFixed(6)} on eligible open+close position fees |
+| 9 | Break-even notional (illustrative) | ${breakEvenNotional ? `~$${Math.round(breakEvenNotional).toLocaleString("en-US")}` : "n/a"} |
 | 10 | Recommendation | **no coverage** — subsidies require live wallet measurement + legal review |
 
 ## Notes
@@ -96,6 +96,7 @@ ${MARKETS.map((m) => {
 - Execution fees are fetched via GMX SDK \`prepareOrder\` (same path as app \`src/lib/gmxExecutionFee.ts\`).
 - Unused execution fee is refunded by GMX to the trader account; subsidy models must account for refund leakage.
 - Position fee tier (0.04% / 0.06%) and referral tiers are GMX-controlled.
+- Tier 1 referral income is negligible for typical V1 trades ($10–$50 risk); break-even notional is illustrative and assumes subsidizing full round-trip execution cost from referral rewards only.
 
 ## Recommendation
 

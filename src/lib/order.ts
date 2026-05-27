@@ -18,7 +18,6 @@ import {
   toTokenRaw,
   applySlippage,
   MAX_UINT256,
-  ZERO_BYTES32,
   getGmxReferralCodeBytes32,
 } from "./contracts"
 import { fetchGmxExecutionFeeWei } from "./gmxExecutionFee"
@@ -30,13 +29,8 @@ export interface OrderResult {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const
 
-function extractOrderKey(receipt: { logs: Array<{ topics: readonly `0x${string}`[] }> }): Hash | null {
-  for (const log of [...receipt.logs].reverse()) {
-    const topic = log.topics.find((t) => /^0x[0-9a-fA-F]{64}$/.test(t) && t !== ZERO_BYTES32)
-    if (topic) return topic as Hash
-  }
-  return null
-}
+const EXECUTION_FEE_ERROR_COPY =
+  "Network / execution cost changed before GMX accepted the order. Please refresh the quote and try again."
 
 export function userFacingGmxError(err: unknown, fallback = "GMX could not complete this action. Try again or use GMX directly."): string {
   const message = err instanceof Error ? err.message : String(err ?? "")
@@ -44,6 +38,18 @@ export function userFacingGmxError(err: unknown, fallback = "GMX could not compl
   if (lower.includes("user rejected") || lower.includes("user denied") || lower.includes("rejected")) return "Trade was cancelled in your wallet."
   if (lower.includes("allowance") || lower.includes("approve")) return "Approval was cancelled. You need to approve USDC before starting this trade."
   if (lower.includes("insufficient funds") || lower.includes("exceeds balance")) return "You need a small amount of ETH on Arbitrum to pay network and execution costs."
+  if (
+    lower.includes("insufficientexecutionfee") ||
+    lower.includes("insufficient execution fee") ||
+    lower.includes("execution fee") ||
+    lower.includes("minexecutionfee") ||
+    lower.includes("keeper fee") ||
+    lower.includes("gas price") ||
+    lower.includes("max fee per gas") ||
+    lower.includes("fee too low")
+  ) {
+    return EXECUTION_FEE_ERROR_COPY
+  }
   if (lower.includes("acceptableprice") || lower.includes("price")) return "Price moved too quickly. Please review the trade and try again."
   return fallback
 }
@@ -181,8 +187,9 @@ export function useCreateOrder() {
       })
 
       const txHash = await walletClient.writeContract(request)
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-      return { orderKey: extractOrderKey(receipt), txHash }
+      await publicClient.waitForTransactionReceipt({ hash: txHash })
+      // orderKey is optional; pending → confirmed uses on-chain position polling (see OrderPendingScreen).
+      return { orderKey: null, txHash }
     },
   })
 }
@@ -256,12 +263,13 @@ export function useClosePosition() {
       })
 
       const txHash = await walletClient.writeContract(request)
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-      return { orderKey: extractOrderKey(receipt), txHash }
+      await publicClient.waitForTransactionReceipt({ hash: txHash })
+      return { orderKey: null, txHash }
     },
   })
 }
 
+/** Optional hint only — never use for pending → confirmed; position polling is source of truth. */
 export function useOrderStatus(orderKey: Hash | null | undefined) {
   const publicClient = usePublicClient({ chainId: ARBITRUM_CHAIN_ID })
 
@@ -279,7 +287,7 @@ export function useOrderStatus(orderKey: Hash | null | undefined) {
         const orderData = order as { addresses: { account: string } }
         return orderData.addresses.account === ZERO_ADDRESS ? "executed" : "pending"
       } catch {
-        return "executed"
+        return "unknown"
       }
     },
     enabled: !!orderKey && !!publicClient,
