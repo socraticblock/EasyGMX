@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { DEFAULT_LEVERAGE, DEFAULT_RISK_USD, MAX_RISK_USD, MIN_RISK_USD, type MarketKey } from "./contracts"
+import { DEFAULT_LEVERAGE, DEFAULT_RISK_USD, MAX_RISK_USD, MIN_RISK_USD, V1_PRIMARY_MARKET_KEY, type MarketKey } from "./contracts"
 import type { EasyActivePosition, EasyClosedTrade } from "./gmxPositions"
 import type { Timeframe } from "./gmxCandles"
 import type { TradeDirection } from "./gmxQuote"
@@ -20,8 +20,12 @@ interface TradeState {
   closeError: string | null
   activePosition: EasyActivePosition | null
   lastClosedTrade: EasyClosedTrade | null
+  showMarketPicker: boolean
 
   setSelectedMarket: (m: MarketKey | null) => void
+  openMarketPicker: () => void
+  closeMarketPicker: () => void
+  startEthTrade: () => void
   setDirection: (d: TradeDirection) => void
   setRiskUsd: (a: number) => void
   setLeverage: (l: 5 | 10) => void
@@ -54,6 +58,7 @@ const INITIAL = {
   closeError: null,
   activePosition: null,
   lastClosedTrade: null,
+  showMarketPicker: false,
 }
 
 function clampRiskUsd(value: number): number {
@@ -73,6 +78,13 @@ export const useTradeStore = create<TradeState>((set, get) => ({
   ...INITIAL,
 
   setSelectedMarket: (m) => set({ selectedMarket: m, lastClosedTrade: null }),
+  openMarketPicker: () => set({ showMarketPicker: true, selectedMarket: null, lastClosedTrade: null }),
+  closeMarketPicker: () => set({ showMarketPicker: false }),
+  startEthTrade: () => set({
+    selectedMarket: V1_PRIMARY_MARKET_KEY,
+    showMarketPicker: false,
+    lastClosedTrade: null,
+  }),
   setDirection: (d) => set({ direction: d }),
   setRiskUsd: (a) => set({ riskUsd: clampRiskUsd(a) }),
   setLeverage: (l) => set({ leverage: l }),
@@ -100,6 +112,7 @@ export const useTradeStore = create<TradeState>((set, get) => ({
   }),
   tradeAgain: () => set({
     selectedMarket: null,
+    showMarketPicker: false,
     direction: "up",
     riskUsd: MIN_RISK_USD,
     leverage: DEFAULT_LEVERAGE,

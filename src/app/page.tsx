@@ -1,8 +1,7 @@
 "use client"
 
-import { useAccount } from "wagmi"
 import { useTradeStore } from "@/lib/store"
-import { LandingScreen } from "@/components/LandingScreen"
+import { HomeScreen } from "@/components/HomeScreen"
 import { MarketSelectScreen } from "@/components/MarketSelectScreen"
 import { TradeSetupScreen } from "@/components/TradeSetupScreen"
 import { OrderPendingScreen } from "@/components/OrderPendingScreen"
@@ -12,16 +11,15 @@ import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { WalletDisconnectGuard } from "@/components/WalletDisconnectGuard"
 
 export default function EasyGMX() {
-  const { isConnected } = useAccount()
-  const { selectedMarket, activePosition, orderPhase, lastClosedTrade } = useTradeStore()
+  const { selectedMarket, activePosition, orderPhase, lastClosedTrade, showMarketPicker } = useTradeStore()
 
   const screen = (() => {
-    if (!isConnected) return <LandingScreen />
     if (lastClosedTrade) return <TradeClosedScreen />
     if (activePosition && orderPhase === "keeper") return <OrderPendingScreen />
     if (activePosition) return <PositionLiveScreen />
     if (selectedMarket) return <TradeSetupScreen />
-    return <MarketSelectScreen />
+    if (showMarketPicker) return <MarketSelectScreen />
+    return <HomeScreen />
   })()
 
   return (

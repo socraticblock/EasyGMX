@@ -89,7 +89,7 @@ function MarketCard({
 }
 
 export function MarketSelectScreen() {
-  const { setSelectedMarket } = useTradeStore()
+  const { setSelectedMarket, closeMarketPicker } = useTradeStore()
   const { address } = useAccount()
   const { balance } = useUsdcBalance(address)
   const { data: markets, isLoading } = useEasyMarkets()
@@ -103,11 +103,16 @@ export function MarketSelectScreen() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e30]">
-        <h1 className="text-lg font-bold tracking-tight">
-          Easy<span className="text-[#418cf5]">GMX</span>
-        </h1>
+        <button
+          type="button"
+          onClick={() => closeMarketPicker()}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          &larr; Home
+        </button>
+        <h1 className="text-sm font-semibold">All markets</h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-mono tabular-nums text-muted-foreground">
+          <span className="hidden sm:inline text-sm font-mono tabular-nums text-muted-foreground">
             {balance.value > 0 ? `${balance.formatted} USDC` : "-"}
           </span>
           <WalletButton />
