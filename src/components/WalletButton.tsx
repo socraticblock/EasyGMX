@@ -36,7 +36,8 @@ export function WalletButton({ className = "" }: { className?: string }) {
     )
   }
 
-  const primaryConnector = connectors[0]
+  const primaryConnector =
+    connectors.find((c) => c.id === "injected" || c.type === "injected") ?? connectors[0]
 
   return (
     <button

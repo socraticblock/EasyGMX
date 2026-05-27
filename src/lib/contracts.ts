@@ -118,6 +118,19 @@ export const MARKET_LIST: MarketInfo[] = [
   { key: "ARB/USD", address: MARKETS["ARB/USD"], symbol: "ARB", apiSymbol: "ARB/USD [ARB-USDC]", icon: "\u25C6", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
 ]
 
+/** V1 launch focus — ETH first; other perps de-emphasized until ETH path is proven stable. */
+export const V1_PRIMARY_MARKET_KEY: MarketKey = "ETH/USD"
+
+export const V1_SECONDARY_MARKET_KEYS: MarketKey[] = ["BTC/USD", "SOL/USD", "ARB/USD"]
+
+export function getV1PrimaryMarket(): MarketInfo {
+  return MARKET_LIST.find((m) => m.key === V1_PRIMARY_MARKET_KEY) ?? MARKET_LIST[0]
+}
+
+export function getV1SecondaryMarkets(): MarketInfo[] {
+  return MARKET_LIST.filter((m) => V1_SECONDARY_MARKET_KEYS.includes(m.key))
+}
+
 export const MIN_RISK_USD = 10
 export const MAX_RISK_USD = 1_000
 export const DEFAULT_RISK_USD = 10
@@ -142,16 +155,4 @@ export const DEFAULT_EXECUTION_FEE_ETH = 0.0001 // ~0.0001 ETH
 
 export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000" as const
 
-export function getGmxReferralCodeBytes32(): `0x${string}` {
-  const code = process.env.NEXT_PUBLIC_GMX_REFERRAL_CODE?.trim()
-  if (!code) return ZERO_BYTES32
-
-  if (/^0x[0-9a-fA-F]{64}$/.test(code)) {
-    return code as `0x${string}`
-  }
-
-  const bytes = new TextEncoder().encode(code)
-  if (bytes.length > 32) return ZERO_BYTES32
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0")
-  return `0x${hex}`
-}
+export { getEasyGmxReferralCodeBytes32 as getGmxReferralCodeBytes32 } from "./gmxReferral"

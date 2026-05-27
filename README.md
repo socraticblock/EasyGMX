@@ -18,22 +18,32 @@ Trade in 4 clicks — pick a market, pick a direction, set your amount, and go. 
 
 - Next.js 16 (App Router)
 - wagmi + viem (Ethereum interaction)
-- ConnectKit (wallet connection)
+- wagmi native connectors (wallet connection)
 - Zustand (state management)
 - TradingView Lightweight Charts
 - GMX V2 smart contracts (ExchangeRouter, Reader, Oracle)
+
+## V1 verification
+
+See [docs/V1-LIVE-TRADE-TEST.md](docs/V1-LIVE-TRADE-TEST.md) for manual open/close checklist.
+
+```bash
+npm run check:gmx-markets
+npm run check:gmx-referral
+npm run measure:gmx-costs
+```
 
 ## Quick Start
 
 ```bash
 # Install
-bun install
+npm install
 
 # (Optional) Set a custom RPC — defaults to public Arbitrum RPC
 echo "NEXT_PUBLIC_RPC_URL=https://arb1.arbitrum.io/rpc" > .env.local
 
 # Run
-bun run dev
+npm run dev
 ```
 
 Open http://localhost:3000
@@ -50,7 +60,7 @@ Open http://localhost:3000
 Connect Wallet → Pick Market → Set Trade → Watch Position
 ```
 
-1. **Connect** — ConnectKit handles MetaMask, WalletConnect, Coinbase Wallet
+1. **Connect** — wagmi handles injected, WalletConnect, and Coinbase Wallet
 2. **Pick Market** — Live oracle prices from GMX's API, open interest shown
 3. **Set Trade** — Up/Down direction, USDC amount, 5x/10x leverage, fee breakdown
 4. **Watch Position** — TradingView chart, live P&L, one-tap close
@@ -89,7 +99,7 @@ src/
 │   ├── wagmi.ts              # wagmi config for Arbitrum
 │   └── abi/                  # ExchangeRouter, Reader, ERC20 ABIs
 └── providers/
-    └── Web3Provider.tsx       # WagmiProvider + QueryClient + ConnectKit
+    └── Web3Provider.tsx       # WagmiProvider + QueryClient
 ```
 
 ## Safety

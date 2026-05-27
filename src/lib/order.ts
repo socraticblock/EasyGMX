@@ -17,11 +17,11 @@ import {
   toUsd,
   toTokenRaw,
   applySlippage,
-  DEFAULT_EXECUTION_FEE_ETH,
   MAX_UINT256,
   ZERO_BYTES32,
   getGmxReferralCodeBytes32,
 } from "./contracts"
+import { fetchGmxExecutionFeeWei } from "./gmxExecutionFee"
 
 export interface OrderResult {
   orderKey: Hash | null
@@ -29,10 +29,6 @@ export interface OrderResult {
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const
-
-function executionFeeWei(): bigint {
-  return BigInt(Math.round(DEFAULT_EXECUTION_FEE_ETH * 1e18))
-}
 
 function extractOrderKey(receipt: { logs: Array<{ topics: readonly `0x${string}`[] }> }): Hash | null {
   for (const log of [...receipt.logs].reverse()) {
@@ -127,7 +123,7 @@ export function useCreateOrder() {
 
       const collateralRaw = toTokenRaw(params.collateralUsd, marketInfo.collateralDecimals)
       const sizeRaw = toUsd(params.sizeUsd)
-      const fee = executionFeeWei()
+      const fee = await fetchGmxExecutionFeeWei(params.marketKey)
       const acceptablePrice = applySlippage(params.currentPrice, params.isLong)
 
       const sendTokensData = encodeFunctionData({
@@ -207,7 +203,8 @@ export function useClosePosition() {
       if (!walletClient || !address || !publicClient) throw new Error("Wallet not connected")
 
       const sizeRaw = toUsd(params.sizeUsd)
-      const fee = executionFeeWei()
+      const marketKey = MARKET_LIST.find((m) => m.address.toLowerCase() === params.marketAddress.toLowerCase())?.key ?? "ETH/USD"
+      const fee = await fetchGmxExecutionFeeWei(marketKey)
       const acceptablePrice = applySlippage(params.currentPrice, !params.isLong)
 
       const sendWntData = encodeFunctionData({

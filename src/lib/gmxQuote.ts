@@ -36,10 +36,37 @@ export function estimateLiquidationPrice(
     : entryPrice * (1 + 1 / leverage - maintenanceMargin)
 }
 
-export function estimateFeesUsd(sizeUsd: number): number {
-  const positionFee = sizeUsd * 0.0005
-  const executionFeeUsd = 0.15
-  return Math.round((positionFee + executionFeeUsd) * 100) / 100
+/** GMX position fee is often 0.04% or 0.06% depending on open interest balance. */
+export const POSITION_FEE_BPS_LOW = 4
+export const POSITION_FEE_BPS_HIGH = 6
+
+export interface FeeEstimateBreakdown {
+  positionFeeLowUsd: number
+  positionFeeHighUsd: number
+  executionFeeUsd: number
+  totalLowUsd: number
+  totalHighUsd: number
+}
+
+export function estimateFeeBreakdown(sizeUsd: number, executionFeeEth?: number, ethUsdPrice?: number): FeeEstimateBreakdown {
+  const positionFeeLowUsd = (sizeUsd * POSITION_FEE_BPS_LOW) / 10_000
+  const positionFeeHighUsd = (sizeUsd * POSITION_FEE_BPS_HIGH) / 10_000
+  const executionFeeUsd =
+    executionFeeEth !== undefined && ethUsdPrice !== undefined && ethUsdPrice > 0
+      ? executionFeeEth * ethUsdPrice
+      : 0.15
+  return {
+    positionFeeLowUsd,
+    positionFeeHighUsd,
+    executionFeeUsd,
+    totalLowUsd: Math.round((positionFeeLowUsd + executionFeeUsd) * 100) / 100,
+    totalHighUsd: Math.round((positionFeeHighUsd + executionFeeUsd) * 100) / 100,
+  }
+}
+
+export function estimateFeesUsd(sizeUsd: number, executionFeeEth?: number, ethUsdPrice?: number): number {
+  const { totalHighUsd } = estimateFeeBreakdown(sizeUsd, executionFeeEth, ethUsdPrice)
+  return totalHighUsd
 }
 
 export function validateRiskUsd(riskUsd: number, usdcBalance: number): string | null {
@@ -57,9 +84,12 @@ export function buildEasyTradeQuote(params: {
   leverage: 5 | 10
   usdcBalance: number
   ethBalance: number
+  executionFeeEth?: number
+  ethUsdPrice?: number
   hasExistingSameDirectionPosition?: boolean
 }): EasyTradeQuote | null {
-  const { market, direction, riskUsd, leverage, usdcBalance, ethBalance, hasExistingSameDirectionPosition } = params
+  const { market, direction, riskUsd, leverage, usdcBalance, ethBalance, executionFeeEth, ethUsdPrice, hasExistingSameDirectionPosition } = params
+  const minExecutionEth = executionFeeEth ?? DEFAULT_EXECUTION_FEE_ETH
   if (!market) return null
 
   const isLong = directionToIsLong(direction)
@@ -69,7 +99,7 @@ export function buildEasyTradeQuote(params: {
     validateRiskUsd(riskUsd, usdcBalance) ||
     (hasExistingSameDirectionPosition ? "You already have this GMX trade open. Close it before starting another in the same direction." : null) ||
     (!market.isAvailable ? market.unavailableReason || "This trade is not available right now." : null) ||
-    (ethBalance < DEFAULT_EXECUTION_FEE_ETH ? "You need a small amount of ETH on Arbitrum to pay network and execution costs." : null) ||
+    (ethBalance < minExecutionEth ? "You need a small amount of ETH on Arbitrum to pay network and execution costs." : null) ||
     (market.price <= 0 ? "Price data is not available right now." : null) ||
     (availableLiquidity !== undefined && availableLiquidity < sizeUsd ? "This trade is not available right now. Try a smaller amount or another market." : null)
 
@@ -82,7 +112,7 @@ export function buildEasyTradeQuote(params: {
     sizeUsd,
     estimatedEntryPrice: market.price,
     liquidationPrice: estimateLiquidationPrice(market.price, isLong, leverage),
-    estimatedFeesUsd: estimateFeesUsd(sizeUsd),
+    estimatedFeesUsd: estimateFeesUsd(sizeUsd, executionFeeEth, ethUsdPrice),
     borrowRate: isLong ? market.borrowRateLong : market.borrowRateShort,
     fundingRate: isLong ? market.fundingRateLong : market.fundingRateShort,
     maxRiskUsd: riskUsd,

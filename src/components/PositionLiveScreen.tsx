@@ -8,6 +8,7 @@ import { MARKET_LIST, TOKENS } from "@/lib/contracts"
 import { closedTradeFromPosition, findMatchingPosition, mergePositionPrice, useEasyPositions } from "@/lib/gmxPositions"
 import { useEasyMarkets } from "@/lib/gmxMarketData"
 import { MarketChart } from "@/components/MarketChart"
+import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
 
 function formatUsd(n: number): string {
   if (!Number.isFinite(n)) return "-"
@@ -131,6 +132,8 @@ export function PositionLiveScreen() {
           </span>
         </div>
       </header>
+
+      <ReferralDebugStrip />
 
       <div className="px-4 py-4">
         <MarketChart

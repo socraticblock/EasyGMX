@@ -1,10 +1,13 @@
 "use client"
 
 import { useAccount, useBalance } from "wagmi"
-import { ConnectKitButton } from "connectkit"
+import { WalletButton } from "@/components/WalletButton"
+import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
+import { useGmxExecutionFee } from "@/hooks/useGmxExecutionFee"
 import { useState, useEffect, useCallback } from "react"
 import { useTradeStore } from "@/lib/store"
-import { ARBITRUM_CHAIN_ID, MARKET_LIST, MIN_RISK_USD, TOKENS } from "@/lib/contracts"
+import { ARBITRUM_CHAIN_ID, DEFAULT_EXECUTION_FEE_ETH, MARKET_LIST, MIN_RISK_USD, SLIPPAGE_BPS, TOKENS } from "@/lib/contracts"
+import { estimateFeeBreakdown } from "@/lib/gmxQuote"
 import { useUsdcApproval, useCreateOrder, userFacingGmxError } from "@/lib/order"
 import { useUsdcBalance } from "@/hooks/useUsdcBalance"
 import { useEasyMarkets } from "@/lib/gmxMarketData"
@@ -31,6 +34,8 @@ export function TradeSetupScreen() {
   const { balance } = useUsdcBalance(address)
   const { data: ethBalance } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
   const { data: markets } = useEasyMarkets()
+  const { data: executionFee } = useGmxExecutionFee(store.selectedMarket)
+  const ethUsdPrice = markets?.["ETH/USD"]?.price
   const { data: walletPositions } = useEasyPositions(address)
   const marketInfo = MARKET_LIST.find((m) => m.key === store.selectedMarket)
   const market = store.selectedMarket ? markets?.[store.selectedMarket] : undefined
@@ -46,8 +51,14 @@ export function TradeSetupScreen() {
     leverage,
     usdcBalance: balance.value,
     ethBalance: ethBalance ? Number(ethBalance.value) / 1e18 : 0,
+    executionFeeEth: executionFee?.eth,
+    ethUsdPrice,
     hasExistingSameDirectionPosition,
   })
+  const feeBreakdown = quote
+    ? estimateFeeBreakdown(quote.sizeUsd, executionFee?.eth, ethUsdPrice)
+    : null
+  const executionFeeEth = executionFee?.eth ?? DEFAULT_EXECUTION_FEE_ETH
   const collateralRaw = BigInt(Math.round(riskUsd * 1e6))
   const approval = useUsdcApproval(collateralRaw, approveAll)
   const createOrder = useCreateOrder()
@@ -70,7 +81,7 @@ export function TradeSetupScreen() {
     setShowRiskAck(false)
   }, [store])
 
-  const handleTrade = useCallback(async () => {
+  async function handleTrade() {
     if (!quote || !marketInfo || !market || !quote.canTrade) return
     if (!store.hasAcknowledgedRisk) {
       setShowRiskAck(true)
@@ -117,7 +128,7 @@ export function TradeSetupScreen() {
     } catch (err) {
       store.setOrderError(userFacingGmxError(err, "GMX could not open this trade. Your funds were not used. Try again or choose a smaller amount."))
     }
-  }, [quote, marketInfo, market, store, approval, createOrder])
+  }
 
   const buttonDisabled = !quote || !quote.canTrade || store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
   const buttonLabel = (() => {
@@ -147,8 +158,10 @@ export function TradeSetupScreen() {
             {market ? `$${formatUsd(market.price)}` : "-"}
           </span>
         </div>
-        <ConnectKitButton />
+        <WalletButton />
       </header>
+
+      <ReferralDebugStrip />
 
       <div className="flex-1 px-4 py-5 space-y-5 max-w-lg mx-auto w-full">
         <MarketChart
@@ -259,18 +272,48 @@ export function TradeSetupScreen() {
             <span className="text-muted-foreground">Estimated entry</span>
             <span className="font-mono tabular-nums">${formatUsd(quote?.estimatedEntryPrice ?? 0)}</span>
           </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Max collateral at risk</span>
+            <span className="font-mono tabular-nums text-[#ef4444]/90">${formatUsd(riskUsd)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Liquidation (est.)</span>
+            <span className="font-mono tabular-nums">${formatUsd(quote?.liquidationPrice ?? 0)}</span>
+          </div>
+          {feeBreakdown && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Est. GMX fees</span>
+              <span className="font-mono tabular-nums text-right text-xs">
+                ${feeBreakdown.totalLowUsd.toFixed(2)}–${feeBreakdown.totalHighUsd.toFixed(2)}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Network / execution (est.)</span>
+            <span className="font-mono tabular-nums text-xs">
+              ~{executionFeeEth.toFixed(6)} ETH
+              {feeBreakdown && ethUsdPrice ? ` (~$${feeBreakdown.executionFeeUsd.toFixed(2)})` : ""}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Slippage tolerance</span>
+            <span>{(SLIPPAGE_BPS / 100).toFixed(1)}%</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed pt-1 border-t border-[#1e1e30]">
+            Estimated GMX position fee (0.04%–0.06%). Final fees may differ based on GMX market state, price impact, funding, borrowing, and execution. Final entry price may differ from the estimate.
+          </p>
+          <p className="text-[11px] text-amber-500/80 leading-relaxed">
+            Borrow and funding fees are variable and can change while your position is open.
+          </p>
           <button
             onClick={() => setShowDetails(!showDetails)}
             className="text-[11px] text-[#418cf5]/70 hover:text-[#418cf5]"
           >
-            Details
+            More details
           </button>
           {showDetails && quote && (
             <div className="text-[11px] text-muted-foreground/80 space-y-1 pt-2 border-t border-[#1e1e30] leading-relaxed">
               <p>Powered by GMX V2. No extra EasyGMX trading fee.</p>
-              <p>Estimated GMX fees: ${quote.estimatedFeesUsd.toFixed(2)}</p>
-              <p>Liquidation: ${formatUsd(quote.liquidationPrice)}</p>
-              <p>Slippage tolerance: 0.5%</p>
               <p>Borrow rate: {quote.borrowRate?.toFixed(6) ?? "-"}%</p>
               <p>Funding rate: {quote.fundingRate?.toFixed(6) ?? "-"}%</p>
             </div>
@@ -313,7 +356,7 @@ export function TradeSetupScreen() {
         </button>
 
         <p className="text-[11px] text-muted-foreground/50 text-center leading-relaxed">
-          This opens a real GMX V2 trade. You can lose your full risk amount.
+          This opens a real GMX V2 leveraged position. You can lose your full collateral/risk amount. EasyGMX simplifies the interface; it does not remove trading risk.
         </p>
       </div>
 

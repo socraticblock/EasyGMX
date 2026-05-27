@@ -6,12 +6,15 @@ import { arbiscanTxLink } from "@/lib/order"
 import { MARKET_LIST } from "@/lib/contracts"
 import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
 import { useEffect, useState } from "react"
+import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
+import { useOrderStatus } from "@/lib/order"
 
 export function OrderPendingScreen() {
   const { address } = useAccount()
   const { activePosition, setOrderPhase, updateActivePosition, setOrderError } = useTradeStore()
   const { data: positions } = useEasyPositions(address, activePosition)
   const [startedAt] = useState(() => Date.now())
+  const orderStatus = useOrderStatus(activePosition?.orderKey ?? null)
 
   const marketInfo = MARKET_LIST.find((m) => m.key === activePosition?.marketKey)
   const isLong = activePosition?.isLong ?? true
@@ -39,7 +42,9 @@ export function OrderPendingScreen() {
   }, [startedAt, setOrderError])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col">
+      <ReferralDebugStrip />
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
       <div className="max-w-sm w-full text-center space-y-6">
         <div className="flex justify-center">
           <div
@@ -52,6 +57,7 @@ export function OrderPendingScreen() {
           <h2 className="text-xl font-bold">Opening your {marketInfo?.symbol} {directionLabel} trade...</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             GMX is confirming your trade. This usually takes a few seconds.
+            {orderStatus.data === "pending" ? " Keeper is executing your order." : ""}
           </p>
         </div>
 
@@ -87,6 +93,7 @@ export function OrderPendingScreen() {
           <summary className="cursor-pointer">Details</summary>
           <p className="pt-2">GMX uses keepers to execute orders with fresh prices.</p>
         </details>
+      </div>
       </div>
     </div>
   )

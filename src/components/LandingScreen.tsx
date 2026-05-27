@@ -1,6 +1,6 @@
 "use client"
 
-import { ConnectKitButton } from "connectkit"
+import { WalletButton } from "@/components/WalletButton"
 
 export function LandingScreen() {
   return (
@@ -23,7 +23,7 @@ export function LandingScreen() {
         </div>
 
         <div className="space-y-3">
-          <ConnectKitButton />
+          <WalletButton className="w-full" />
         </div>
 
         <div className="grid grid-cols-3 gap-3 text-center pt-2">
@@ -44,14 +44,22 @@ export function LandingScreen() {
             Simplified interface to GMX V2 on Arbitrum. All trades are real leveraged positions.
             You can lose your full risk amount. Not financial advice.
           </p>
-          <a
-            href="https://app.gmx.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block text-[11px] text-[#418cf5]/60 hover:text-[#418cf5] transition-colors"
-          >
-            Prefer the full UI? &rarr; app.gmx.io
-          </a>
+          <div className="flex flex-col gap-1 items-center">
+            <a
+              href="/referral"
+              className="inline-block text-[11px] text-[#418cf5]/60 hover:text-[#418cf5] transition-colors"
+            >
+              Referral transparency &rarr;
+            </a>
+            <a
+              href="https://app.gmx.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-[11px] text-[#418cf5]/60 hover:text-[#418cf5] transition-colors"
+            >
+              Prefer the full UI? &rarr; app.gmx.io
+            </a>
+          </div>
         </div>
       </div>
     </div>

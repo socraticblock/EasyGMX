@@ -1,18 +1,25 @@
 import { createConfig, http } from "wagmi"
 import { arbitrum } from "wagmi/chains"
-import { getDefaultConnectors } from "connectkit"
+import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors"
 import { RPC_URL } from "./contracts"
 
-const connectors = getDefaultConnectors({
-  app: {
-    name: "EasyGMX",
-    icon: "/logo.svg",
-    description: "Simple perpetuals trading on GMX V2",
-    url: "https://easygmx.io",
-  },
-  walletConnectProjectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? "",
-  coinbaseWalletPreference: "smartWalletOnly",
-})
+const wcProjectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID?.trim() ?? ""
+
+const connectors = [
+  injected({ shimDisconnect: true }),
+  ...(wcProjectId
+    ? [
+        walletConnect({
+          projectId: wcProjectId,
+          showQrModal: true,
+        }),
+      ]
+    : []),
+  coinbaseWallet({
+    appName: "EasyGMX",
+    preference: "smartWalletOnly",
+  }),
+]
 
 export const wagmiConfig = createConfig({
   chains: [arbitrum],
