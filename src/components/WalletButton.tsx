@@ -10,16 +10,23 @@ function shortAddress(address: string): string {
 export function WalletButton({
   className = "",
   showNetwork = false,
+  pill = false,
 }: {
   className?: string
   showNetwork?: boolean
+  pill?: boolean
 }) {
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { disconnect } = useDisconnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
 
-  const baseClass = `inline-flex h-10 items-center justify-center rounded-xl border border-[#418cf5]/30 bg-[#418cf5]/15 px-4 text-sm font-semibold text-[#418cf5] transition-colors hover:bg-[#418cf5]/20 disabled:cursor-not-allowed disabled:opacity-50 ${className}`
+  const pillClass = pill
+    ? `wallet-pill inline-flex items-center gap-2 ${className}`
+    : className
+  const baseClass = pill
+    ? pillClass
+    : `inline-flex h-10 items-center justify-center rounded-xl border border-[#418cf5]/30 bg-[#418cf5]/15 px-4 text-sm font-semibold text-[#418cf5] transition-colors hover:bg-[#418cf5]/20 disabled:cursor-not-allowed disabled:opacity-50 ${className}`
 
   if (isConnected && chainId !== ARBITRUM_CHAIN_ID) {
     return (
@@ -39,13 +46,15 @@ export function WalletButton({
       return (
         <button
           type="button"
-          className={`inline-flex h-10 items-center gap-2 rounded-xl border border-[#1e1e30] bg-[#12121a]/80 px-3 text-sm transition-colors hover:border-[#418cf5]/30 ${className}`}
+          className={pill ? pillClass : `inline-flex h-10 items-center gap-2 rounded-xl border border-[#1e1e30] bg-[#12121a]/80 px-3 text-sm transition-colors hover:border-[#418cf5]/30 ${className}`}
           onClick={() => disconnect()}
         >
-          <span className="font-mono text-xs tabular-nums text-foreground">{shortAddress(address)}</span>
-          <span className="hidden sm:inline h-4 w-px bg-[#1e1e30]" aria-hidden="true" />
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" aria-hidden="true" />
+          <span className={pill ? "wallet-pill-address" : "font-mono text-xs tabular-nums text-foreground"}>
+            {shortAddress(address)}
+          </span>
+          <span className={pill ? "wallet-pill-divider" : "hidden sm:inline h-4 w-px bg-[#1e1e30]"} aria-hidden="true" />
+          <span className={pill ? "wallet-pill-network" : "hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"}>
+            <span className={pill ? "wallet-pill-dot" : "h-1.5 w-1.5 rounded-full bg-[#22c55e]"} aria-hidden="true" />
             Arbitrum
           </span>
         </button>
@@ -64,7 +73,7 @@ export function WalletButton({
   return (
     <button
       type="button"
-      className={baseClass}
+      className={pill ? pillClass : baseClass}
       disabled={!primaryConnector || connectPending}
       onClick={() => primaryConnector && connect({ connector: primaryConnector })}
     >
