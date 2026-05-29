@@ -1,0 +1,35 @@
+/* Responsive trade setup layout. */
+
+.trade-setup-body {
+  width: min(100% - (var(--screen-pad-x) * 2), var(--container-desktop));
+  padding: var(--screen-pad-y) 0 calc(24px + env(safe-area-inset-bottom));
+}
+
+.trade-setup-grid {
+  gap: clamp(16px, 3vw, 32px);
+}
+
+.trade-action-region {
+  margin-top: 16px;
+}
+
+.trade-mobile-chart-hint {
+  display: none;
+}
+
+.trade-action-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-inline: calc(var(--screen-pad-x) * -1);
+  padding: 12px var(--screen-pad-x) calc(12px + env(safe-area-inset-bottom));
+  background: #0a0a0f;
+}
+
+.trade-chart-shell {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.018);
+  padding: 12px;
+  overflow: hidden;
+}
