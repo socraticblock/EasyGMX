@@ -145,6 +145,7 @@ export function TradeSetupScreen() {
       store.setOrderPhase("idle")
     } catch (err) {
       store.setOrderError(userFacingGmxError(err, "USDC approval failed. Try again in your wallet."))
+      store.setOrderPhase("idle")
     }
   }
 
@@ -189,6 +190,7 @@ export function TradeSetupScreen() {
       })
     } catch (err) {
       store.setOrderError(userFacingGmxError(err, "GMX could not open this trade. Your funds were not used. Try again or choose a smaller amount."))
+      store.setOrderPhase("idle")
     }
   }
 
