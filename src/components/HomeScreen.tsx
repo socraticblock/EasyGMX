@@ -32,41 +32,58 @@ function EasyGmxLogo() {
   )
 }
 
-function EthCard({ onSetUpTrade }: { onSetUpTrade: () => void }) {
+const ETH_MARKET_DETAILS = [
+  { label: "GMX market", value: "ETH/USD" },
+  { label: "Network", value: "Arbitrum" },
+  { label: "Collateral", value: "USDC" },
+  { label: "Order path", value: "GMX V2" },
+] as const
+
+function EthCard({
+  onSetUpTrade,
+  ctaLabel,
+  disabled,
+}: {
+  onSetUpTrade: () => void
+  ctaLabel: string
+  disabled?: boolean
+}) {
   return (
     <div className="eth-feature-card">
       <div className="eth-orb" aria-hidden="true">
-        &#x27E2;
+        <span className="eth-orb-star">&#x2726;</span>
       </div>
 
       <div className="eth-card-content">
         <span className="eth-eyebrow">Primary V1 Market</span>
         <h2 className="eth-title">ETH / USD</h2>
-        <p className="eth-description">The main EasyGMX V1 trading path.</p>
+        <p className="eth-description">The default EasyGMX path for ETH trades on GMX V2.</p>
 
-        <div className="eth-meta-row">
-          <span className="eth-meta-pill">
-            <CircleDollarSign className="h-4 w-4 text-[#58a0ff]/80" aria-hidden="true" />
-            USDC collateral
-          </span>
-          <span className="eth-meta-pill">
-            <Hexagon className="h-4 w-4 text-[#58a0ff]/80" aria-hidden="true" />
-            Arbitrum
-          </span>
-          <span className="eth-meta-pill">
-            <ArrowUpDown className="h-4 w-4 text-[#58a0ff]/80" aria-hidden="true" />
-            <span>
-              <span className="price-up">Price Up</span>
-              {" or "}
-              <span className="price-down">Price Down</span>
-            </span>
-          </span>
+        <div className="eth-market-grid" aria-label="ETH trade route details">
+          {ETH_MARKET_DETAILS.map(({ label, value }) => (
+            <div key={label} className="eth-market-cell">
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="eth-direction-panel">
+          <div>
+            <span className="eth-direction-kicker">Direction</span>
+            <p>Choose the side before reviewing the real GMX order.</p>
+          </div>
+          <div className="eth-direction-options" aria-hidden="true">
+            <span className="price-up">Price Up</span>
+            <span className="eth-direction-divider">/</span>
+            <span className="price-down">Price Down</span>
+          </div>
         </div>
       </div>
 
-      <button type="button" onClick={onSetUpTrade} className="eth-card-cta primary-cta">
-        Set up ETH trade
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      <button type="button" onClick={onSetUpTrade} disabled={disabled} className="eth-card-cta primary-cta">
+        {ctaLabel}
+        {!disabled && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
       </button>
     </div>
   )
@@ -76,19 +93,19 @@ const HOW_IT_WORKS = [
   {
     step: "1",
     title: "Choose direction",
-    body: "Pick Price Up or Price Down.",
+    body: "Pick Price Up or Price Down for ETH/USD.",
     icon: ArrowUpDown,
   },
   {
     step: "2",
-    title: "Set your risk",
-    body: "Choose how much USDC you are willing to put at risk.",
+    title: "Set USDC risk",
+    body: "Choose the amount of collateral you are willing to put at risk.",
     icon: CircleDollarSign,
   },
   {
     step: "3",
-    title: "Review & sign",
-    body: "EasyGMX prepares a real GMX V2 trade for you to review before signing.",
+    title: "Review GMX order",
+    body: "Check the real GMX V2 trade before signing in your wallet.",
     icon: FileCheck,
   },
 ] as const
@@ -134,6 +151,7 @@ export function HomeScreen() {
   }
 
   const ctaDisabled = connectPending || switchPending
+  const ctaLabel = connectPending ? "Connecting..." : switchPending ? "Switching..." : "Set up ETH trade"
 
   return (
     <div className="home-lobby">
@@ -178,19 +196,20 @@ export function HomeScreen() {
       <main className="flex-1">
         <div className="lobby-container">
           <section className="lobby-hero-grid">
-            <div>
+            <div className="lobby-copy-panel">
               <div className="lobby-eyebrow">
                 <Shield className="h-3.5 w-3.5" aria-hidden="true" />
                 Real GMX V2 trading on Arbitrum
               </div>
 
               <h1 className="lobby-title">
-                Real GMX trades. <span className="accent">Made simple.</span>
+                <span className="title-line">Real GMX trades.</span>
+                <span className="title-line title-line-accent">Made simple.</span>
               </h1>
 
               <p className="lobby-subtitle">
-                Choose Price Up or Price Down, set your USDC risk, and review a real GMX V2 trade
-                before signing with your wallet.
+                Choose Price Up or Price Down, set your USDC risk, and review the real GMX V2
+                order before signing.
               </p>
 
               <div className="lobby-actions">
@@ -200,8 +219,8 @@ export function HomeScreen() {
                   onClick={handleSetUpEthTrade}
                   className="primary-cta"
                 >
-                  {connectPending ? "Connecting..." : switchPending ? "Switching..." : "Set up ETH trade"}
-                  {!connectPending && !switchPending && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+                  {ctaLabel}
+                  {!ctaDisabled && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                 </button>
                 <button type="button" onClick={() => openMarketPicker()} className="secondary-cta">
                   View all markets
@@ -216,13 +235,13 @@ export function HomeScreen() {
               <div className="risk-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <p>
-                  Leveraged trading can lose your full collateral. EasyGMX simplifies the interface;
-                  it does not remove risk.
+                  <strong>Risk:</strong> leveraged trading can lose your full collateral. EasyGMX
+                  simplifies the interface; it does not remove risk.
                 </p>
               </div>
             </div>
 
-            <EthCard onSetUpTrade={handleSetUpEthTrade} />
+            <EthCard onSetUpTrade={handleSetUpEthTrade} ctaLabel={ctaLabel} disabled={ctaDisabled} />
           </section>
 
           <section className="how-section">
@@ -252,7 +271,7 @@ export function HomeScreen() {
             </div>
 
             <p className="cost-note">
-              No extra EasyGMX trading fee. You pay GMX and network execution costs.
+              No extra EasyGMX trading fee. You pay GMX fees and network execution costs.
             </p>
 
             <Link href="/referral" className="referral-link">
