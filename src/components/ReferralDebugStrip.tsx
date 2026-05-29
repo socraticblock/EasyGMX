@@ -5,11 +5,13 @@ import { useAccount } from "wagmi"
 import { useGmxReferralStatus } from "@/hooks/useGmxReferralStatus"
 import { expressV1StatusLabel, GMX_EXPRESS_ENABLED } from "@/lib/gmxExpress"
 
+const SHOW_DEBUG_STRIP = process.env.NEXT_PUBLIC_SHOW_DEBUG_STRIP === "true"
+
 export function ReferralDebugStrip() {
   const { isConnected } = useAccount()
   const { attributionLabel, isLoading, configError } = useGmxReferralStatus()
 
-  if (!isConnected) return null
+  if (!SHOW_DEBUG_STRIP || !isConnected) return null
 
   return (
     <div

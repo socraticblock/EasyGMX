@@ -3,6 +3,17 @@ import type { EasyMarket } from "./gmxMarketData"
 
 export type TradeDirection = "up" | "down"
 
+export type TradeBlockReason =
+  | "insufficient_usdc"
+  | "insufficient_eth"
+  | "market_unavailable"
+  | "existing_position"
+  | "invalid_risk_min"
+  | "invalid_risk_max"
+  | "invalid_risk"
+  | "liquidity"
+  | "no_price"
+
 export interface EasyTradeQuote {
   marketKey: MarketKey
   direction: TradeDirection
@@ -17,6 +28,8 @@ export interface EasyTradeQuote {
   fundingRate?: number
   maxRiskUsd: number
   canTrade: boolean
+  blockReason?: TradeBlockReason
+  /** @deprecated use blockReason + getTradeBlockButtonLabel */
   cannotTradeReason?: string
 }
 
@@ -69,12 +82,67 @@ export function estimateFeesUsd(sizeUsd: number, executionFeeEth?: number, ethUs
   return totalHighUsd
 }
 
-export function validateRiskUsd(riskUsd: number, usdcBalance: number): string | null {
-  if (!Number.isFinite(riskUsd)) return "Invalid risk amount."
-  if (riskUsd < MIN_RISK_USD) return `Minimum risk is $${MIN_RISK_USD}.`
-  if (riskUsd > MAX_RISK_USD) return `Maximum risk is $${MAX_RISK_USD}.`
-  if (riskUsd > usdcBalance) return "You do not have enough USDC for this trade."
+export function validateRiskUsd(riskUsd: number, usdcBalance: number): TradeBlockReason | null {
+  if (!Number.isFinite(riskUsd)) return "invalid_risk"
+  if (riskUsd < MIN_RISK_USD) return "invalid_risk_min"
+  if (riskUsd > MAX_RISK_USD) return "invalid_risk_max"
+  if (riskUsd > usdcBalance) return "insufficient_usdc"
   return null
+}
+
+export function getTradeBlockButtonLabel(reason: TradeBlockReason | undefined): string {
+  switch (reason) {
+    case "insufficient_usdc":
+      return "Insufficient USDC balance"
+    case "insufficient_eth":
+      return "Insufficient ETH for network costs"
+    case "existing_position":
+      return "Existing same-direction position"
+    case "market_unavailable":
+    case "liquidity":
+    case "no_price":
+      return "Market unavailable"
+    case "invalid_risk_min":
+    case "invalid_risk_max":
+    case "invalid_risk":
+      return "Trade unavailable"
+    default:
+      return "Trade unavailable"
+  }
+}
+
+export function getTradeBlockExplanation(
+  reason: TradeBlockReason | undefined,
+  ctx: {
+    riskUsd: number
+    usdcBalance: number
+    marketLabel: string
+    directionLabel: string
+  }
+): string | null {
+  const { riskUsd, usdcBalance, marketLabel, directionLabel } = ctx
+  switch (reason) {
+    case "insufficient_usdc":
+      return `This trade risks $${riskUsd.toFixed(2)} USDC, but your wallet has $${usdcBalance.toFixed(2)} USDC.`
+    case "insufficient_eth":
+      return "You need a small amount of ETH on Arbitrum for GMX network/execution costs."
+    case "existing_position":
+      return `You already have an open ${marketLabel} ${directionLabel} position. Close it before opening another same-direction trade.`
+    case "invalid_risk_min":
+      return `Minimum risk is $${MIN_RISK_USD} USDC.`
+    case "invalid_risk_max":
+      return `Maximum risk is $${MAX_RISK_USD} USDC.`
+    case "invalid_risk":
+      return "Enter a valid USDC risk amount."
+    case "liquidity":
+      return "GMX does not have enough liquidity for this size right now. Try a smaller amount or another market."
+    case "no_price":
+      return "GMX price data is not available for this market right now."
+    case "market_unavailable":
+      return "This market is not available on GMX right now."
+    default:
+      return null
+  }
 }
 
 export function buildEasyTradeQuote(params: {
@@ -95,13 +163,14 @@ export function buildEasyTradeQuote(params: {
   const isLong = directionToIsLong(direction)
   const sizeUsd = riskUsd * leverage
   const availableLiquidity = isLong ? market.availableLiquidityLongUsd : market.availableLiquidityShortUsd
-  let cannotTradeReason =
+
+  let blockReason: TradeBlockReason | null =
     validateRiskUsd(riskUsd, usdcBalance) ||
-    (hasExistingSameDirectionPosition ? "You already have this GMX trade open. Close it before starting another in the same direction." : null) ||
-    (!market.isAvailable ? market.unavailableReason || "This trade is not available right now." : null) ||
-    (ethBalance < minExecutionEth ? "You need a small amount of ETH on Arbitrum to pay network and execution costs." : null) ||
-    (market.price <= 0 ? "Price data is not available right now." : null) ||
-    (availableLiquidity !== undefined && availableLiquidity < sizeUsd ? "This trade is not available right now. Try a smaller amount or another market." : null)
+    (hasExistingSameDirectionPosition ? "existing_position" : null) ||
+    (!market.isAvailable ? "market_unavailable" : null) ||
+    (ethBalance < minExecutionEth ? "insufficient_eth" : null) ||
+    (market.price <= 0 ? "no_price" : null) ||
+    (availableLiquidity !== undefined && availableLiquidity < sizeUsd ? "liquidity" : null)
 
   const quote: EasyTradeQuote = {
     marketKey: market.marketKey,
@@ -116,8 +185,9 @@ export function buildEasyTradeQuote(params: {
     borrowRate: isLong ? market.borrowRateLong : market.borrowRateShort,
     fundingRate: isLong ? market.fundingRateLong : market.fundingRateShort,
     maxRiskUsd: riskUsd,
-    canTrade: !cannotTradeReason,
-    cannotTradeReason: cannotTradeReason ?? undefined,
+    canTrade: !blockReason,
+    blockReason: blockReason ?? undefined,
+    cannotTradeReason: blockReason ? getTradeBlockButtonLabel(blockReason) : undefined,
   }
 
   return quote

@@ -57,7 +57,7 @@ function EthCard({
       <div className="eth-card-content">
         <span className="eth-eyebrow">Primary V1 Market</span>
         <h2 className="eth-title">ETH / USD</h2>
-        <p className="eth-description eth-description--desktop">The default EasyGMX path for ETH trades on GMX V2.</p>
+        <p className="eth-description eth-description--desktop">The default ETH path for real GMX V2 trades.</p>
 
         <div className="eth-market-grid eth-market-grid--desktop" aria-label="ETH trade route details">
           {ETH_MARKET_DETAILS.map(({ label, value }) => (
@@ -71,7 +71,7 @@ function EthCard({
         <div className="eth-direction-panel eth-direction-panel--desktop">
           <div>
             <span className="eth-direction-kicker">Direction</span>
-            <p>Choose the side before reviewing the real GMX order.</p>
+            <p>Choose Price Up or Price Down before review.</p>
           </div>
           <div className="eth-direction-options" aria-hidden="true">
             <span className="price-up">Price Up</span>

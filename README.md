@@ -62,6 +62,7 @@ Set in `.env.local` for development and in **Vercel → Project → Settings →
 | `NEXT_PUBLIC_WC_PROJECT_ID` | Optional | WalletConnect project ID for mobile wallets |
 | `NEXT_PUBLIC_RPC_URL` | Optional | Arbitrum RPC (defaults to public Arbitrum RPC) |
 | `NEXT_PUBLIC_GMX_EXPRESS_ENABLED` | Optional | `true` enables Express dry-run research only; trades stay Classic |
+| `NEXT_PUBLIC_SHOW_DEBUG_STRIP` | Optional | `true` shows referral debug strip in trading screens (dev only) |
 
 V1 does **not** use sponsor wallets, cost coverage, or free-trade infrastructure.
 

@@ -11,12 +11,14 @@ export function MarketChart({
   onTimeframeChange,
   entryPrice,
   isLong = true,
+  chartHeight = 220,
 }: {
   marketKey: MarketKey | null
   timeframe: Timeframe
   onTimeframeChange: (t: Timeframe) => void
   entryPrice?: number
   isLong?: boolean
+  chartHeight?: number
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -32,7 +34,7 @@ export function MarketChart({
       layout: { background: { color: "#0a0a0f" }, textColor: "#7d8092", fontSize: 11 },
       grid: { vertLines: { color: "#1e1e3030" }, horzLines: { color: "#1e1e3030" } },
       width: containerRef.current.clientWidth,
-      height: 220,
+      height: chartHeight,
       timeScale: { timeVisible: true, secondsVisible: timeframe === "1m" || timeframe === "5m", borderColor: "#1e1e30" },
       rightPriceScale: { borderColor: "#1e1e30" },
       crosshair: { mode: 0 },
@@ -59,6 +61,10 @@ export function MarketChart({
       seriesRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    chartRef.current?.applyOptions({ height: chartHeight })
+  }, [chartHeight])
 
   useEffect(() => {
     const lineColor = isLong ? "#22c55e" : "#ef4444"
@@ -103,7 +109,7 @@ export function MarketChart({
         ))}
       </div>
       <div className="relative">
-        <div ref={containerRef} className="w-full h-[220px]" />
+        <div ref={containerRef} className="w-full" style={{ height: chartHeight }} />
         {(isLoading || error || candles.length === 0) && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground pointer-events-none">
             {error ? "Chart data unavailable" : "Loading chart..."}
