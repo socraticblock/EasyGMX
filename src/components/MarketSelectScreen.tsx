@@ -103,17 +103,13 @@ export function MarketSelectScreen() {
   const primaryDisabled = !!primaryData && !primaryData.isAvailable
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e30]">
-        <button
-          type="button"
-          onClick={() => closeMarketPicker()}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
+    <div className="app-screen">
+      <header className="app-header">
+        <button type="button" onClick={() => closeMarketPicker()} className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0">
           &larr; Home
         </button>
-        <h1 className="text-sm font-semibold">All markets</h1>
-        <div className="flex items-center gap-3">
+        <h1 className="app-header-title text-sm font-semibold">All markets</h1>
+        <div className="flex items-center gap-3 shrink-0">
           <span className="hidden sm:inline text-sm font-mono tabular-nums text-muted-foreground">
             {balance.value > 0 ? `${balance.formatted} USDC` : "-"}
           </span>
@@ -123,54 +119,64 @@ export function MarketSelectScreen() {
 
       <ReferralDebugStrip />
 
-      <div className="flex-1 px-4 py-5 space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">
-            V1 market
-          </h2>
-          <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
-            EasyGMX V1 focuses on ETH first. Other markets are available but less tested.
-          </p>
-        </div>
-
-        <MarketCard
-          m={primary}
-          data={primaryData}
-          isLoading={isLoading}
-          disabled={primaryDisabled}
-          onSelect={() => !primaryDisabled && setSelectedMarket(primary.key)}
-        />
-
-        <div className="space-y-2 pt-2">
-          <button
-            type="button"
-            onClick={() => setShowMore(!showMore)}
-            className="w-full flex items-center justify-between text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase"
-          >
-            <span>More markets</span>
-            <span className="text-[#418cf5]/70">{showMore ? "Hide" : "Show"}</span>
-          </button>
-          {showMore && (
-            <div className="space-y-2">
-              {secondary.map((m) => {
-                const data = markets?.[m.key]
-                const disabled = !!data && !data.isAvailable
-                return (
-                  <MarketCard
-                    key={m.key}
-                    m={m}
-                    data={data}
-                    isLoading={isLoading}
-                    disabled={disabled}
-                    compact
-                    onSelect={() => !disabled && setSelectedMarket(m.key)}
-                  />
-                )
-              })}
+      <main className="market-select-body">
+        <div className="market-select-grid">
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">V1 primary market</h2>
+              <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                ETH is the main V1 path. It is the cleanest route for first live testing on GMX V2.
+              </p>
             </div>
-          )}
+
+            <MarketCard
+              m={primary}
+              data={primaryData}
+              isLoading={isLoading}
+              disabled={primaryDisabled}
+              onSelect={() => !primaryDisabled && setSelectedMarket(primary.key)}
+            />
+          </section>
+
+          <section className="market-secondary-panel">
+            <div className="space-y-1">
+              <h2 className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">More markets</h2>
+              <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                BTC, SOL, and ARB are available when data loads, but ETH remains the V1 focus.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMore(!showMore)}
+              className="w-full flex items-center justify-between rounded-xl border border-[#1e1e30] bg-[#12121a] px-4 py-3 text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase"
+            >
+              <span>Secondary markets</span>
+              <span className="text-[#418cf5]/70">{showMore ? "Hide" : "Show"}</span>
+            </button>
+
+            {showMore && (
+              <div className="space-y-2">
+                {secondary.map((m) => {
+                  const data = markets?.[m.key]
+                  const disabled = !!data && !data.isAvailable
+                  return (
+                    <MarketCard
+                      key={m.key}
+                      m={m}
+                      data={data}
+                      isLoading={isLoading}
+                      disabled={disabled}
+                      compact
+                      onSelect={() => !disabled && setSelectedMarket(m.key)}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
