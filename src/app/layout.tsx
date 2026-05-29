@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
+import "./home-polish.css"
 import { Web3Provider } from "@/providers/Web3Provider"
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
@@ -8,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "EasyGMX — Simple Perp Trading",
-  description: "Trade perpetuals on GMX in 4 clicks. Simplified, mobile-first, real positions.",
+  description: "Trade real GMX V2 positions on Arbitrum with a simpler, review-first interface.",
 }
 
 export const viewport: Viewport = {
