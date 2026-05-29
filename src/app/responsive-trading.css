@@ -1,0 +1,103 @@
+/* Shared responsive trading layout system. */
+
+:root {
+  --screen-pad-x: clamp(16px, 3vw, 32px);
+  --screen-pad-y: clamp(14px, 2.5vh, 32px);
+  --container-mobile: 640px;
+  --container-tablet: 900px;
+  --container-desktop: 1240px;
+  --container-wide: 1480px;
+  --container-ultra: 1600px;
+  --ticket-width: 400px;
+  --ticket-width-wide: 420px;
+  --header-height: 64px;
+}
+
+.app-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0a0a0f;
+}
+
+.app-header {
+  min-height: var(--header-height);
+  padding: 12px var(--screen-pad-x);
+  border-bottom: 1px solid #1e1e30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.app-header-title {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.app-container {
+  width: min(100% - (var(--screen-pad-x) * 2), var(--container-desktop));
+  margin-inline: auto;
+}
+
+.center-card-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--screen-pad-y) var(--screen-pad-x) calc(var(--screen-pad-y) + env(safe-area-inset-bottom));
+}
+
+.center-card {
+  width: min(100%, 420px);
+}
+
+.responsive-dialog-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 var(--screen-pad-x) calc(12px + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.responsive-dialog-panel {
+  width: min(100%, 420px);
+  max-height: min(90svh, 720px);
+  overflow-y: auto;
+  border-radius: 18px;
+  border: 1px solid #1e1e30;
+  background: #12121a;
+  padding: 20px;
+}
+
+@media (min-width: 640px) {
+  .responsive-dialog-shell {
+    align-items: center;
+    padding: var(--screen-pad-x);
+  }
+}
+
+@media (max-width: 640px) {
+  .eth-feature-card .eth-card-cta {
+    display: none;
+  }
+
+  .eth-feature-card {
+    padding-bottom: 22px !important;
+  }
+}
+
+@media (min-width: 1920px) {
+  .lobby-container {
+    width: min(100% - 96px, 1480px);
+  }
+
+  .lobby-hero-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(520px, 0.95fr);
+  }
+}
