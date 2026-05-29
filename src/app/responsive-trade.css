@@ -5,17 +5,9 @@
   padding: var(--screen-pad-y) 0 calc(24px + env(safe-area-inset-bottom));
 }
 
-.trade-setup-grid {
-  gap: clamp(16px, 3vw, 32px);
-}
-
-.trade-action-region {
-  margin-top: 16px;
-}
-
-.trade-mobile-chart-hint {
-  display: none;
-}
+.trade-setup-grid { gap: clamp(16px, 3vw, 32px); }
+.trade-action-region { margin-top: 16px; }
+.trade-mobile-chart-hint { display: none; }
 
 .trade-action-sticky {
   position: sticky;
@@ -32,4 +24,42 @@
   background: rgba(255, 255, 255, 0.018);
   padding: 12px;
   overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .trade-setup-body { width: min(100% - 24px, var(--container-mobile)); padding-top: 12px; }
+  .trade-setup-grid { display: flex; flex-direction: column; }
+  .trade-setup-chart-col { order: 1; }
+  .trade-setup-ticket { order: 2; }
+  .trade-mobile-chart-hint { display: block; margin-top: 8px; font-size: 11px; line-height: 1.45; color: rgba(148, 163, 184, 0.72); }
+  .trade-order-ticket-card { border-radius: 18px; }
+  .trade-ticket-section { padding: 15px; }
+  .trade-review-row { gap: 8px; }
+  .trade-review-label { max-width: 48%; }
+  .trade-review-value { max-width: 52%; overflow-wrap: anywhere; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .trade-setup-body { width: min(100% - 48px, var(--container-tablet)); }
+}
+
+@media (min-width: 1024px) {
+  .trade-setup-body { width: min(100% - 56px, var(--container-desktop)); }
+  .trade-setup-grid { grid-template-columns: minmax(0, 1fr) minmax(380px, var(--ticket-width)); }
+  .trade-action-sticky { position: static; margin-inline: 0; padding: 0; background: none; }
+}
+
+@media (min-width: 1536px) {
+  .trade-setup-body { width: min(100% - 80px, var(--container-wide)); }
+  .trade-setup-grid { grid-template-columns: minmax(0, 1fr) minmax(400px, var(--ticket-width-wide)); gap: 36px; }
+}
+
+@media (min-width: 1920px) {
+  .trade-setup-body { width: min(100% - 112px, var(--container-ultra)); }
+}
+
+@media (max-width: 374px) {
+  .wallet-pill, .app-header button, .top-nav-actions button { font-size: 12px; }
+  .app-header { gap: 8px; }
+  .trade-action-btn { min-height: 52px; font-size: 14px; }
 }
