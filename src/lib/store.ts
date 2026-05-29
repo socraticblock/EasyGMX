@@ -4,7 +4,7 @@ import type { EasyActivePosition, EasyClosedTrade } from "./gmxPositions"
 import type { Timeframe } from "./gmxCandles"
 import type { TradeDirection } from "./gmxQuote"
 
-export type OrderPhase = "idle" | "approval" | "signing" | "submitted" | "keeper" | "confirmed" | "failed"
+export type OrderPhase = "idle" | "approval" | "signing" | "submitted" | "keeper" | "recovery" | "confirmed" | "failed"
 
 interface TradeState {
   selectedMarket: MarketKey | null

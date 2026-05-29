@@ -41,6 +41,7 @@ export function PositionLiveScreen() {
   const { data: positions } = useEasyPositions(address, activePosition)
   const { data: markets } = useEasyMarkets()
   const [closeStartedAt, setCloseStartedAt] = useState<number | null>(null)
+  const [showCloseReview, setShowCloseReview] = useState(false)
 
   const marketInfo = MARKET_LIST.find((m) => m.key === activePosition?.marketKey)
 
@@ -81,14 +82,16 @@ export function PositionLiveScreen() {
     const id = setInterval(() => {
       if (Date.now() - closeStartedAt > 75_000) {
         setCloseError("GMX is taking longer than expected to confirm the close. Check GMX or Arbiscan before trying again.")
+        setClosePhase("idle")
         clearInterval(id)
       }
     }, 5_000)
     return () => clearInterval(id)
-  }, [closePhase, closeStartedAt, setCloseError])
+  }, [closePhase, closeStartedAt, setCloseError, setClosePhase])
 
   const handleClose = useCallback(async () => {
     if (!activePosition) return
+    setShowCloseReview(false)
     try {
       setCloseError(null)
       setClosePhase("signing")
@@ -103,7 +106,8 @@ export function PositionLiveScreen() {
       setCloseStartedAt(Date.now())
       setClosePhase("keeper")
     } catch (err) {
-      setCloseError(userFacingGmxError(err, "GMX could not close this trade. Try again or manage the position on GMX."))
+      setCloseError(userFacingGmxError(err, "GMX could not close this position. Your position is still open on GMX. Try again or manage it on GMX."))
+      setClosePhase("idle")
     }
   }, [activePosition, closePosition, setClosePhase, updateActivePosition, setCloseError])
 
@@ -111,9 +115,13 @@ export function PositionLiveScreen() {
 
   const isLong = activePosition.isLong
   const pnlPositive = activePosition.pnlUsd >= 0
-  const closeLabel = pnlPositive ? "Take Profit" : "Cut Loss"
   const directionLabel = activePosition.direction === "up" ? "Price Up" : "Price Down"
+  const marketLabel = marketInfo?.symbol ?? activePosition.marketKey
   const isClosing = closePhase === "signing" || closePhase === "keeper" || closePosition.isPending
+  const closeButtonLabel = isClosing
+    ? (closePhase === "signing" ? "Check wallet to close position..." : "Closing position on GMX...")
+    : "Close full position"
+  const confirmCloseLabel = `Close ${marketLabel} position`
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0f]">
@@ -204,16 +212,65 @@ export function PositionLiveScreen() {
 
       <div className="mt-auto px-4 py-4 border-t border-[#1e1e30]">
         <button
-          onClick={handleClose}
+          onClick={() => !isClosing && setShowCloseReview(true)}
           disabled={isClosing}
-          className={`w-full min-h-14 rounded-xl font-semibold text-sm border transition-all duration-150 active:scale-[0.98] disabled:opacity-50
-            ${pnlPositive
-              ? "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20 hover:bg-[#22c55e]/20"
-              : "bg-[#ef4444]/10 text-[#ef4444] border-[#ef4444]/20 hover:bg-[#ef4444]/20"}`}
+          className="w-full min-h-14 rounded-xl font-semibold text-sm border transition-all duration-150 active:scale-[0.98] disabled:opacity-50
+            bg-[#12121a] text-foreground border-[#1e1e30] hover:border-[#418cf5]/30"
         >
-          {isClosing ? (closePhase === "signing" ? "Check wallet to close..." : "Closing trade...") : closeLabel}
+          {closeButtonLabel}
         </button>
       </div>
+
+      {showCloseReview && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+          <div className="max-w-sm w-full rounded-xl bg-[#12121a] border border-[#1e1e30] p-5 space-y-4">
+            <h2 className="text-lg font-bold">Close full position</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This closes your entire GMX position for this market and direction. This cannot be undone from EasyGMX.
+            </p>
+            <div className="rounded-xl bg-[#0a0a0f] border border-[#1e1e30] p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Market</span>
+                <span>{marketLabel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Direction</span>
+                <span className={isLong ? "text-[#22c55e]" : "text-[#ef4444]"}>{directionLabel}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Position size</span>
+                <span className="font-mono tabular-nums">${formatUsd(activePosition.sizeUsd)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Collateral at risk</span>
+                <span className="font-mono tabular-nums">${formatUsd(activePosition.riskUsd)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current PnL</span>
+                <span className={`font-mono tabular-nums ${pnlPositive ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                  {formatPnl(activePosition.pnlUsd)}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full min-h-12 rounded-xl bg-[#ef4444] text-white font-semibold transition-all active:scale-[0.98]"
+              >
+                {confirmCloseLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCloseReview(false)}
+                className="w-full min-h-11 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

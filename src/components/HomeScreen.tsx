@@ -42,9 +42,9 @@ function EthCard({ onSetUpTrade }: { onSetUpTrade: () => void }) {
       <div className="eth-card-content">
         <span className="eth-eyebrow">Primary V1 Market</span>
         <h2 className="eth-title">ETH / USD</h2>
-        <p className="eth-description">The main EasyGMX V1 trading path.</p>
+        <p className="eth-description eth-description--desktop">The main EasyGMX V1 trading path.</p>
 
-        <div className="eth-meta-row">
+        <div className="eth-meta-row eth-meta-row--desktop">
           <span className="eth-meta-pill">
             <CircleDollarSign className="h-4 w-4 text-[#58a0ff]/80" aria-hidden="true" />
             USDC collateral
@@ -61,6 +61,13 @@ function EthCard({ onSetUpTrade }: { onSetUpTrade: () => void }) {
               <span className="price-down">Price Down</span>
             </span>
           </span>
+        </div>
+
+        <div className="eth-chip-row" aria-label="ETH market details">
+          <span className="eth-chip">ETH/USD</span>
+          <span className="eth-chip">Arbitrum</span>
+          <span className="eth-chip">USDC</span>
+          <span className="eth-chip">GMX V2</span>
         </div>
       </div>
 
@@ -206,6 +213,9 @@ export function HomeScreen() {
                 <button type="button" onClick={() => openMarketPicker()} className="secondary-cta">
                   View all markets
                 </button>
+                <button type="button" onClick={() => openMarketPicker()} className="markets-text-link">
+                  View all markets
+                </button>
               </div>
 
               <p className="lobby-helper">
@@ -216,8 +226,7 @@ export function HomeScreen() {
               <div className="risk-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <p>
-                  Leveraged trading can lose your full collateral. EasyGMX simplifies the interface;
-                  it does not remove risk.
+                  Leveraged trading can lose your full collateral. EasyGMX keeps the interface simple — it does not remove risk.
                 </p>
               </div>
             </div>

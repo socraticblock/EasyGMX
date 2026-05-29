@@ -7,7 +7,7 @@ import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
 import { useTradeStore } from "@/lib/store"
 import { getV1PrimaryMarket, getV1SecondaryMarkets } from "@/lib/contracts"
 import { useUsdcBalance } from "@/hooks/useUsdcBalance"
-import { useEasyMarkets, type EasyMarket } from "@/lib/gmxMarketData"
+import { useEasyMarkets, mergeMarketTrends, useEasyMarketTrends, type EasyMarket } from "@/lib/gmxMarketData"
 import type { MarketInfo } from "@/lib/contracts"
 
 function formatUsd(n: number): string {
@@ -92,7 +92,9 @@ export function MarketSelectScreen() {
   const { setSelectedMarket, closeMarketPicker } = useTradeStore()
   const { address } = useAccount()
   const { balance } = useUsdcBalance(address)
-  const { data: markets, isLoading } = useEasyMarkets()
+  const { data: coreMarkets, isLoading } = useEasyMarkets()
+  const { data: trends } = useEasyMarketTrends(true)
+  const markets = mergeMarketTrends(coreMarkets, trends)
   const [showMore, setShowMore] = useState(false)
 
   const primary = getV1PrimaryMarket()

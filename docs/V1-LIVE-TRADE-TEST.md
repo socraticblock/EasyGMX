@@ -17,7 +17,7 @@ EasyGMX opens **real** GMX V2 positions on Arbitrum. Automated agents cannot sig
 | Quote | `gmxQuote.ts`, `useGmxExecutionFee` | Risk, liquidation, fee range, dynamic execution ETH |
 | Approve | `useUsdcApproval` in `order.ts` | Exact or max USDC allowance |
 | Open | `useCreateOrder` | multicall: sendTokens → sendWnt → createOrder (MarketIncrease) |
-| Pending | `OrderPendingScreen` | Position polling confirms trade; 75s timeout |
+| Pending | `OrderPendingScreen` | Position polling; 75s → recovery (position kept) |
 | Live | `PositionLiveScreen` | Chart, P&amp;L merge, full close |
 | Close | `useClosePosition` | MarketDecrease + execution fee from API |
 | Errors | `userFacingGmxError` | Wallet reject, allowance, ETH, execution fee, price messages |
@@ -36,16 +36,29 @@ EasyGMX opens **real** GMX V2 positions on Arbitrum. Automated agents cannot sig
 - [ ] Price Up or Price Down, $10 risk, 5x leverage
 - [ ] Review shows liquidation, fee range, **~dynamic ETH** execution estimate
 - [ ] Acknowledge risk modal (first time)
-- [ ] Approve USDC if prompted
+- [ ] Approve USDC if prompted — label says **Allow GMX to use $X USDC** (does not open trade)
+- [ ] Trade button says **Open ETH Price Up/Down trade**
 - [ ] Sign open tx in wallet
 - [ ] Pending screen → live position within ~75s
 - [ ] Arbiscan link on pending screen resolves
 
 ### 3. Close full position
 
-- [ ] Take Profit / Cut Loss
+- [ ] **Close full position** → review modal
+- [ ] Confirm **Close [MARKET] position**
 - [ ] Sign close tx
 - [ ] Position clears; closed summary screen
+
+### 3b. Pending recovery
+
+- [ ] If keeper delay &gt; 75s → recovery screen (not home)
+- [ ] **Continue checking** resumes polling
+- [ ] **View transaction** / **Open GMX** links work
+- [ ] If GMX confirms after timeout → live position with open tx preserved
+
+### 3c. Close failure
+
+- [ ] Reject or fail close → live position still visible; error explains next step
 
 ### 4. Referral (optional)
 
@@ -61,7 +74,8 @@ EasyGMX opens **real** GMX V2 positions on Arbitrum. Automated agents cannot sig
 
 - [ ] Reject wallet signature → friendly cancel message
 - [ ] Insufficient ETH → execution cost error before trade
-- [ ] Keeper delay &gt; 75s → timeout message; check GMX / Arbiscan
+- [ ] Keeper delay &gt; 75s → recovery screen; position **not** cleared from app
+- [ ] Refresh during recovery → returns home (known limitation; see `V1-KNOWN-LIMITATIONS.md`)
 
 ## CLI helpers
 

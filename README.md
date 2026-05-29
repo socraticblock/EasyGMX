@@ -1,31 +1,31 @@
 # EasyGMX
 
-Simplified perpetual futures trading on GMX V2 (Arbitrum).
+Real GMX V2 perpetual futures on Arbitrum — simplified for beginners.
 
-Trade in 4 clicks — pick a market, pick a direction, set your amount, and go. No order book complexity, no advanced settings, no hidden fees.
+Choose a direction, set your USDC risk, review the order, and sign with your wallet. No order book complexity, no extra EasyGMX trading fee.
 
 ## What It Does
 
-- **4 markets**: ETH/USD, BTC/USD, SOL/USD, ARB/USD perpetuals
+- **V1 focus**: ETH/USD primary path; BTC, SOL, ARB secondary
+- **Arbitrum only**, **USDC collateral only**
 - **2 leverage presets**: 5x or 10x
-- **USDC collateral only**: no messing with multiple tokens
-- **Real positions on GMX V2**: this is not a demo — trades are real leveraged positions
-- **Live P&L tracking**: oracle-priced chart + running profit/loss
-- **Take Profit / Cut Loss**: one-tap position closing
-- **Share your wins**: copy P&L card to clipboard
+- **Real positions on GMX V2** — not a demo
+- **Live P&L tracking** with oracle-priced chart
+- **Full position close** with review step before signing
+- **Pending recovery** if GMX takes longer than expected
 
 ## Tech Stack
 
 - Next.js 16 (App Router)
 - wagmi + viem (Ethereum interaction)
-- wagmi native connectors (wallet connection)
 - Zustand (state management)
 - TradingView Lightweight Charts
-- GMX V2 smart contracts (ExchangeRouter, Reader, Oracle)
+- `@gmx-io/sdk` + GMX V2 smart contracts
 
 ## V1 verification
 
-See [docs/V1-LIVE-TRADE-TEST.md](docs/V1-LIVE-TRADE-TEST.md) for manual open/close checklist.
+- Manual checklist: [docs/V1-LIVE-TRADE-TEST.md](docs/V1-LIVE-TRADE-TEST.md)
+- Known limitations: [docs/V1-KNOWN-LIMITATIONS.md](docs/V1-KNOWN-LIMITATIONS.md)
 
 ```bash
 npm run check:gmx-markets
@@ -36,17 +36,21 @@ npm run measure:gmx-costs
 ## Quick Start
 
 ```bash
-# Install
 npm install
 
-# (Optional) Set a custom RPC — defaults to public Arbitrum RPC
+# Optional: custom Arbitrum RPC
 echo "NEXT_PUBLIC_RPC_URL=https://arb1.arbitrum.io/rpc" > .env.local
 
-# Run
 npm run dev
 ```
 
 Open http://localhost:3000
+
+Production (after `npm run build`):
+
+```bash
+npm run start
+```
 
 ## Environment variables
 
@@ -65,64 +69,58 @@ V1 does **not** use sponsor wallets, cost coverage, or free-trade infrastructure
 
 - A browser wallet (MetaMask, Coinbase, etc.) connected to **Arbitrum**
 - **USDC** on Arbitrum: `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`
-- A small amount of ETH for gas (Arbitrum fees are pennies)
+- A small amount of ETH for gas
 
 ## How It Works
 
 ```
-Connect Wallet → Pick Market → Set Trade → Watch Position
+Connect Wallet → Set up trade → Review & sign → Watch position
 ```
 
 1. **Connect** — wagmi handles injected, WalletConnect, and Coinbase Wallet
-2. **Pick Market** — Live oracle prices from GMX's API, open interest shown
-3. **Set Trade** — Up/Down direction, USDC amount, 5x/10x leverage, fee breakdown
-4. **Watch Position** — TradingView chart, live P&L, one-tap close
+2. **Set up trade** — Price Up/Down, USDC risk ($10–$1,000), 5x/10x leverage, fee breakdown
+3. **Review & sign** — USDC approval (if needed) is separate from opening the trade
+4. **Watch position** — chart, live P&L, close full position with review
 
 Behind the scenes, opening a position sends a `multicall` to GMX's ExchangeRouter:
-- `sendTokens` — transfers USDC collateral to OrderVault
-- `sendWnt` — sends ETH for keeper execution fee
-- `createOrder` — creates a MarketIncrease order
+- `sendTokens` — USDC collateral to OrderVault
+- `sendWnt` — ETH for keeper execution fee
+- `createOrder` — MarketIncrease order
 
-A GMX keeper picks up the order within 2-10 seconds and executes it on-chain.
+A GMX keeper typically executes within a few seconds.
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── page.tsx              # 4-screen SPA router
+│   ├── page.tsx              # SPA router
 │   ├── layout.tsx            # Root layout with Web3Provider
 │   └── globals.css           # Dark trading theme
 ├── components/
-│   ├── LandingScreen.tsx     # Connect wallet
-│   ├── MarketSelectScreen.tsx # Pick ETH/BTC/SOL/ARB
-│   ├── TradeSetupScreen.tsx  # Configure trade
-│   ├── OrderPendingScreen.tsx # Keeper wait state
-│   ├── PositionLiveScreen.tsx # Live position + chart
-│   ├── ErrorBoundary.tsx
-│   ├── WalletDisconnectGuard.tsx
-│   └── ui/                   # shadcn/ui components
-├── hooks/
-│   └── useUsdcBalance.ts     # ERC20 balanceOf hook
+│   ├── HomeScreen.tsx        # Trading lobby
+│   ├── MarketSelectScreen.tsx
+│   ├── TradeSetupScreen.tsx
+│   ├── OrderPendingScreen.tsx
+│   ├── PositionLiveScreen.tsx
+│   └── TradeClosedScreen.tsx
 ├── lib/
-│   ├── contracts.ts          # GMX V2 addresses, markets, order types
-│   ├── order.ts              # Create/close order hooks (wagmi mutations)
-│   ├── api.ts                # GMX REST API (prices, rates, fees)
-│   ├── store.ts              # Zustand trade state
-│   ├── wagmi.ts              # wagmi config for Arbitrum
-│   └── abi/                  # ExchangeRouter, Reader, ERC20 ABIs
+│   ├── contracts.ts          # GMX V2 addresses, markets
+│   ├── order.ts              # Create/close order hooks
+│   ├── gmxMarketData.ts      # GMX SDK market data
+│   ├── gmxQuote.ts           # Trade quotes & validation
+│   └── store.ts              # Zustand trade state
 └── providers/
-    └── Web3Provider.tsx       # WagmiProvider + QueryClient
+    └── Web3Provider.tsx
 ```
 
 ## Safety
 
-- **No custodial risk** — the app never holds or controls your funds. Every transaction is signed in your wallet.
-- **Input validation** — min $1, max $10,000, balance checks, fee buffer
-- **Slippage protection** — 0.5% tolerance built into every order
-- **Error boundaries** — React crash recovery on every screen
-- **Wallet disconnect guard** — handles unexpected disconnection gracefully
-- **No hidden fees** — fee breakdown shown before every trade
+- **No custodial risk** — every transaction is signed in your wallet
+- **Input validation** — min $10, max $1,000 USDC risk, balance checks
+- **Slippage protection** — 0.5% tolerance on orders
+- **Pending recovery** — submitted trades stay visible if GMX is slow
+- **No extra EasyGMX trading fee** — GMX and network costs only
 
 ## Disclaimer
 

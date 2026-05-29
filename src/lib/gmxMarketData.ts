@@ -4,7 +4,7 @@ import { withGmxRetry } from "./gmxRetry"
 import { fetchCandles } from "./gmxCandles"
 import { MARKET_LIST, USD_PRECISION, type MarketKey } from "./contracts"
 
-export interface EasyMarket {
+export interface EasyMarketCore {
   marketKey: MarketKey
   marketAddress: string
   symbol: string
@@ -13,10 +13,7 @@ export interface EasyMarket {
   price: number
   minPrice: number
   maxPrice: number
-  change4hPercent: number
   change1dPercent: number
-  change30dPercent: number
-  change1yPercent: number
   isAvailable: boolean
   unavailableReason?: string
   borrowRateLong?: number
@@ -26,6 +23,14 @@ export interface EasyMarket {
   availableLiquidityLongUsd?: number
   availableLiquidityShortUsd?: number
 }
+
+export interface EasyMarketTrends {
+  change4hPercent: number
+  change30dPercent: number
+  change1yPercent: number
+}
+
+export type EasyMarket = EasyMarketCore & Partial<EasyMarketTrends>
 
 export function usd30ToNumber(value: bigint | string | number | undefined): number {
   if (value === undefined) return 0
@@ -56,16 +61,16 @@ async function candleChange(marketKey: MarketKey, period: "4H" | "30D" | "1Y"): 
   return percentChange(latest.close, previous.close)
 }
 
-export async function fetchEasyMarkets(): Promise<Record<MarketKey, EasyMarket>> {
+export async function fetchEasyMarketsCore(): Promise<Record<MarketKey, EasyMarketCore>> {
   const sdk = getGmxSdk()
   const [marketInfos, tickers] = await Promise.all([
     withGmxRetry(() => sdk.fetchMarketsInfo(), { label: "GMX markets" }),
     withGmxRetry(() => sdk.fetchMarketsTickers({ symbols: MARKET_LIST.map((m) => m.apiSymbol) }), { label: "GMX tickers" }),
   ])
 
-  const byKey: Partial<Record<MarketKey, EasyMarket>> = {}
+  const byKey: Partial<Record<MarketKey, EasyMarketCore>> = {}
 
-  await Promise.all(MARKET_LIST.map(async (m) => {
+  for (const m of MARKET_LIST) {
     const ticker = tickers.find((t) => t.marketTokenAddress.toLowerCase() === m.address.toLowerCase() || t.symbol === m.apiSymbol)
     const marketInfo = marketInfos.find((info) =>
       info.marketTokenAddress?.toLowerCase() === m.address.toLowerCase() ||
@@ -84,12 +89,6 @@ export async function fetchEasyMarkets(): Promise<Record<MarketKey, EasyMarket>>
     else if (!hasTicker) unavailableReason = "Price data is not available right now."
     else if (!hasLiquidity) unavailableReason = "Liquidity is not available right now."
 
-    const [change4hPercent, change30dPercent, change1yPercent] = await Promise.all([
-      candleChange(m.key, "4H").catch(() => 0),
-      candleChange(m.key, "30D").catch(() => 0),
-      candleChange(m.key, "1Y").catch(() => 0),
-    ])
-
     byKey[m.key] = {
       marketKey: m.key,
       marketAddress: m.address,
@@ -99,10 +98,7 @@ export async function fetchEasyMarkets(): Promise<Record<MarketKey, EasyMarket>>
       price,
       minPrice: usd30ToNumber(ticker?.minPrice),
       maxPrice: usd30ToNumber(ticker?.maxPrice),
-      change4hPercent,
       change1dPercent: bpsToPercent(ticker?.priceChangePercent24hBps),
-      change30dPercent,
-      change1yPercent,
       isAvailable: !unavailableReason,
       unavailableReason,
       borrowRateLong: rateToDisplayPercent(ticker?.borrowingRateLong),
@@ -112,16 +108,63 @@ export async function fetchEasyMarkets(): Promise<Record<MarketKey, EasyMarket>>
       availableLiquidityLongUsd: availableLong,
       availableLiquidityShortUsd: availableShort,
     }
+  }
+
+  return byKey as Record<MarketKey, EasyMarketCore>
+}
+
+export async function fetchEasyMarketTrends(): Promise<Record<MarketKey, EasyMarketTrends>> {
+  const byKey: Partial<Record<MarketKey, EasyMarketTrends>> = {}
+
+  await Promise.all(MARKET_LIST.map(async (m) => {
+    const [change4hPercent, change30dPercent, change1yPercent] = await Promise.all([
+      candleChange(m.key, "4H").catch(() => 0),
+      candleChange(m.key, "30D").catch(() => 0),
+      candleChange(m.key, "1Y").catch(() => 0),
+    ])
+    byKey[m.key] = { change4hPercent, change30dPercent, change1yPercent }
   }))
 
-  return byKey as Record<MarketKey, EasyMarket>
+  return byKey as Record<MarketKey, EasyMarketTrends>
+}
+
+/** @deprecated Use fetchEasyMarketsCore — kept for scripts that need full data */
+export async function fetchEasyMarkets(): Promise<Record<MarketKey, EasyMarket>> {
+  const [core, trends] = await Promise.all([fetchEasyMarketsCore(), fetchEasyMarketTrends()])
+  const merged = {} as Record<MarketKey, EasyMarket>
+  for (const m of MARKET_LIST) {
+    merged[m.key] = { ...core[m.key], ...trends[m.key] }
+  }
+  return merged
 }
 
 export function useEasyMarkets() {
   return useQuery({
     queryKey: ["easyMarkets"],
-    queryFn: fetchEasyMarkets,
+    queryFn: fetchEasyMarketsCore,
     staleTime: 10_000,
     refetchInterval: 20_000,
   })
+}
+
+export function useEasyMarketTrends(enabled = true) {
+  return useQuery({
+    queryKey: ["easyMarketTrends"],
+    queryFn: fetchEasyMarketTrends,
+    enabled,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  })
+}
+
+export function mergeMarketTrends(
+  core: Record<MarketKey, EasyMarketCore> | undefined,
+  trends: Record<MarketKey, EasyMarketTrends> | undefined
+): Record<MarketKey, EasyMarket> | undefined {
+  if (!core) return undefined
+  const merged = {} as Record<MarketKey, EasyMarket>
+  for (const m of MARKET_LIST) {
+    merged[m.key] = trends?.[m.key] ? { ...core[m.key], ...trends[m.key] } : { ...core[m.key] }
+  }
+  return merged
 }

@@ -40,6 +40,8 @@ export function TradeSetupScreen() {
   const marketInfo = MARKET_LIST.find((m) => m.key === store.selectedMarket)
   const market = store.selectedMarket ? markets?.[store.selectedMarket] : undefined
   const isLong = direction === "up"
+  const marketLabel = marketInfo?.symbol ?? "Market"
+  const directionLabel = direction === "up" ? "Price Up" : "Price Down"
   const hasExistingSameDirectionPosition = !!(marketInfo && walletPositions && findMatchingPosition(walletPositions, {
     marketAddress: marketInfo.address,
     isLong,
@@ -81,7 +83,19 @@ export function TradeSetupScreen() {
     setShowRiskAck(false)
   }, [store])
 
-  async function handleTrade() {
+  async function handleApprove() {
+    if (!quote?.canTrade) return
+    try {
+      store.setOrderError(null)
+      store.setOrderPhase("approval")
+      await approval.approveAsync()
+      store.setOrderPhase("idle")
+    } catch (err) {
+      store.setOrderError(userFacingGmxError(err, "USDC approval failed. Try again in your wallet."))
+    }
+  }
+
+  async function handleOpenTrade() {
     if (!quote || !marketInfo || !market || !quote.canTrade) return
     if (!store.hasAcknowledgedRisk) {
       setShowRiskAck(true)
@@ -90,11 +104,6 @@ export function TradeSetupScreen() {
 
     try {
       store.setOrderError(null)
-      if (approval.needsApproval) {
-        store.setOrderPhase("approval")
-        await approval.approveAsync()
-      }
-
       store.setOrderPhase("signing")
       const result = await createOrder.mutateAsync({
         marketKey: quote.marketKey,
@@ -130,14 +139,17 @@ export function TradeSetupScreen() {
     }
   }
 
-  const buttonDisabled = !quote || !quote.canTrade || store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
-  const buttonLabel = (() => {
+  const isBusy = store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
+  const approvalLabel = (() => {
+    if (store.orderPhase === "approval") return "Approving USDC..."
+    if (approveAll) return "Allow GMX to use USDC"
+    return `Allow GMX to use $${formatUsd(riskUsd)} USDC`
+  })()
+  const tradeLabel = (() => {
     if (!quote) return "Loading market..."
     if (!quote.canTrade) return quote.cannotTradeReason ?? "Trade unavailable"
-    if (store.orderPhase === "approval") return "Approving USDC..."
     if (store.orderPhase === "signing" || createOrder.isPending) return "Check wallet..."
-    if (approval.needsApproval) return approveAll ? "Approve all USDC and start trade" : `Approve $${formatUsd(riskUsd)} USDC and start`
-    return "Start Trade"
+    return `Open ${marketLabel} ${directionLabel} trade`
   })()
 
   return (
@@ -172,8 +184,8 @@ export function TradeSetupScreen() {
         />
 
         <div className="space-y-2">
-          <label className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">
-            What do you think?
+          <label className="text-sm font-semibold text-foreground">
+            Do you think {marketLabel} goes up or down?
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -198,11 +210,11 @@ export function TradeSetupScreen() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <label className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">
-              Risk amount
+          <div className="flex justify-between items-center gap-2">
+            <label className="text-sm font-semibold text-foreground">
+              How much USDC are you willing to put at risk?
             </label>
-            <span className="text-[11px] text-muted-foreground">Balance: {balance.value.toFixed(2)} USDC</span>
+            <span className="text-[11px] text-muted-foreground shrink-0">Balance: {balance.value.toFixed(2)} USDC</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {[10, 25, 50, 100].map((v) => (
@@ -236,9 +248,7 @@ export function TradeSetupScreen() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[11px] font-semibold text-muted-foreground tracking-[0.15em] uppercase">
-            Leverage
-          </label>
+          <label className="text-sm font-semibold text-foreground">Leverage</label>
           <div className="grid grid-cols-2 gap-2">
             {([5, 10] as const).map((l) => (
               <button
@@ -253,19 +263,25 @@ export function TradeSetupScreen() {
               </button>
             ))}
           </div>
+          {leverage === 10 && (
+            <p className="text-[11px] text-amber-500/90 leading-relaxed">
+              10x leverage increases both potential gains and losses. Liquidation can happen faster.
+            </p>
+          )}
         </div>
 
         <div className="rounded-xl bg-[#12121a] border border-[#1e1e30] p-4 space-y-2.5">
+          <h3 className="text-sm font-semibold text-foreground">Review GMX order</h3>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Market</span>
-            <span>{marketInfo?.symbol} {direction === "up" ? "Price Up" : "Price Down"}</span>
+            <span>{marketInfo?.symbol} {directionLabel}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Risk</span>
             <span className="font-mono tabular-nums">${formatUsd(riskUsd)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Position</span>
+            <span className="text-muted-foreground">Position size</span>
             <span className="font-mono tabular-nums">${formatUsd(quote?.sizeUsd ?? 0)} at {leverage}x</span>
           </div>
           <div className="flex justify-between text-sm">
@@ -273,12 +289,12 @@ export function TradeSetupScreen() {
             <span className="font-mono tabular-nums">${formatUsd(quote?.estimatedEntryPrice ?? 0)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Max collateral at risk</span>
-            <span className="font-mono tabular-nums text-[#ef4444]/90">${formatUsd(riskUsd)}</span>
+            <span className="text-muted-foreground">Estimated liquidation</span>
+            <span className="font-mono tabular-nums">${formatUsd(quote?.liquidationPrice ?? 0)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Liquidation (est.)</span>
-            <span className="font-mono tabular-nums">${formatUsd(quote?.liquidationPrice ?? 0)}</span>
+            <span className="text-muted-foreground">Max collateral at risk</span>
+            <span className="font-mono tabular-nums text-[#ef4444]/90">${formatUsd(riskUsd)}</span>
           </div>
           {feeBreakdown && (
             <div className="flex justify-between text-sm">
@@ -320,23 +336,9 @@ export function TradeSetupScreen() {
           )}
         </div>
 
-        {approval.needsApproval && (
-          <div className="rounded-xl bg-[#12121a] border border-[#1e1e30] p-4 space-y-3">
-            <p className="text-sm">Allow GMX to use ${formatUsd(riskUsd)} USDC for this trade.</p>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Approval lets GMX use your USDC for this trade. Your funds stay in your wallet until you confirm the trade.
-            </p>
-            <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-[11px] text-[#418cf5]/70">
-              Advanced
-            </button>
-            {showAdvanced && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" checked={approveAll} onChange={(e) => setApproveAll(e.target.checked)} />
-                Allow GMX to use USDC for future trades.
-              </label>
-            )}
-          </div>
-        )}
+        <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
+          You can lose your full risk amount. EasyGMX simplifies the interface; it does not remove risk.
+        </p>
 
         {(store.orderError || approval.approveError) && (
           <div className="rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 p-3 text-sm text-[#ef4444]">
@@ -344,20 +346,40 @@ export function TradeSetupScreen() {
           </div>
         )}
 
+        {approval.needsApproval && (
+          <div className="space-y-2">
+            <button
+              onClick={handleApprove}
+              disabled={!quote?.canTrade || isBusy}
+              className="w-full min-h-12 rounded-xl font-semibold text-sm bg-[#12121a] border border-[#418cf5]/30 text-[#418cf5] transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              {approvalLabel}
+            </button>
+            <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+              This approval does not open a trade yet.
+            </p>
+            <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-[11px] text-[#418cf5]/70 mx-auto block">
+              Advanced
+            </button>
+            {showAdvanced && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
+                <input type="checkbox" checked={approveAll} onChange={(e) => setApproveAll(e.target.checked)} />
+                Allow GMX to use USDC for future trades.
+              </label>
+            )}
+          </div>
+        )}
+
         <button
-          onClick={handleTrade}
-          disabled={buttonDisabled}
+          onClick={handleOpenTrade}
+          disabled={!quote || !quote.canTrade || approval.needsApproval || isBusy}
           className={`w-full min-h-14 rounded-xl font-bold text-base px-3 transition-all duration-150 active:scale-[0.98]
             ${isLong
               ? "bg-[#22c55e] hover:bg-[#22c55e]/90 text-white shadow-lg shadow-[#22c55e]/20 disabled:opacity-40"
               : "bg-[#ef4444] hover:bg-[#ef4444]/90 text-white shadow-lg shadow-[#ef4444]/20 disabled:opacity-40"}`}
         >
-          {buttonLabel}
+          {tradeLabel}
         </button>
-
-        <p className="text-[11px] text-muted-foreground/50 text-center leading-relaxed">
-          This opens a real GMX V2 leveraged position. You can lose your full collateral/risk amount. EasyGMX simplifies the interface; it does not remove trading risk.
-        </p>
       </div>
 
       {showRiskAck && (

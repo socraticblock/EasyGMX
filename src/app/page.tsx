@@ -15,7 +15,7 @@ export default function EasyGMX() {
 
   const screen = (() => {
     if (lastClosedTrade) return <TradeClosedScreen />
-    if (activePosition && orderPhase === "keeper") return <OrderPendingScreen />
+    if (activePosition && (orderPhase === "keeper" || orderPhase === "recovery")) return <OrderPendingScreen />
     if (activePosition) return <PositionLiveScreen />
     if (selectedMarket) return <TradeSetupScreen />
     if (showMarketPicker) return <MarketSelectScreen />
