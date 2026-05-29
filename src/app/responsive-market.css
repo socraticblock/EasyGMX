@@ -1,0 +1,42 @@
+/* Responsive market select layout. */
+
+.market-select-body {
+  flex: 1;
+  width: min(100% - (var(--screen-pad-x) * 2), var(--container-desktop));
+  margin-inline: auto;
+  padding: 20px 0 calc(28px + env(safe-area-inset-bottom));
+}
+
+.market-select-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.market-secondary-panel {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .market-select-body {
+    width: min(100% - 48px, 920px);
+    padding-top: 28px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .market-select-body {
+    width: min(100% - 64px, 1120px);
+  }
+
+  .market-select-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  .market-secondary-panel {
+    position: sticky;
+    top: 18px;
+  }
+}
