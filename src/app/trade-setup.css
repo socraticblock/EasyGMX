@@ -195,6 +195,27 @@
   font-weight: 600;
 }
 
+.trade-action-btn--wallet {
+  background: #418cf5;
+  color: white;
+  box-shadow: 0 10px 28px rgba(65, 140, 245, 0.18);
+}
+
+.trade-action-btn--wallet:hover:not(:disabled) {
+  background: rgba(65, 140, 245, 0.92);
+}
+
+.trade-action-btn--checking,
+.trade-action-btn:disabled.trade-action-btn--checking {
+  min-height: 48px;
+  background: #1a1a24;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: rgba(148, 163, 184, 0.72);
+  box-shadow: none;
+  cursor: wait;
+  opacity: 1;
+}
+
 .trade-action-btn--blocked,
 .trade-action-btn:disabled.trade-action-btn--blocked {
   background: #1a1a24;

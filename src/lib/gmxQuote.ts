@@ -123,15 +123,15 @@ export function getTradeBlockExplanation(
   const { riskUsd, usdcBalance, marketLabel, directionLabel } = ctx
   switch (reason) {
     case "insufficient_usdc":
-      return `This trade risks $${riskUsd.toFixed(2)} USDC, but your wallet has $${usdcBalance.toFixed(2)} USDC.`
+      return `This trade risks ${riskUsd.toFixed(2)} USDC, but your wallet has ${usdcBalance.toFixed(2)} USDC.`
     case "insufficient_eth":
       return "You need a small amount of ETH on Arbitrum for GMX network/execution costs."
     case "existing_position":
       return `You already have an open ${marketLabel} ${directionLabel} position. Close it before opening another same-direction trade.`
     case "invalid_risk_min":
-      return `Minimum risk is $${MIN_RISK_USD} USDC.`
+      return `Minimum risk is ${MIN_RISK_USD.toFixed(2)} USDC.`
     case "invalid_risk_max":
-      return `Maximum risk is $${MAX_RISK_USD} USDC.`
+      return `Maximum risk is ${MAX_RISK_USD.toFixed(2)} USDC.`
     case "invalid_risk":
       return "Enter a valid USDC risk amount."
     case "liquidity":

@@ -1,6 +1,6 @@
 "use client"
 
-import { useAccount, useBalance } from "wagmi"
+import { useAccount, useBalance, useConnect, useSwitchChain } from "wagmi"
 import { WalletButton } from "@/components/WalletButton"
 import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
 import { useGmxExecutionFee } from "@/hooks/useGmxExecutionFee"
@@ -19,6 +19,11 @@ import { useEasyMarkets } from "@/lib/gmxMarketData"
 import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
 import { MarketChart } from "@/components/MarketChart"
 import "@/app/trade-setup.css"
+
+function formatUsdcAmount(n: number): string {
+  if (!Number.isFinite(n)) return "-"
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 function formatUsd(n: number): string {
   if (!Number.isFinite(n)) return "-"
@@ -49,6 +54,8 @@ export function TradeSetupScreen() {
   const [showRiskAck, setShowRiskAck] = useState(false)
   const isDesktop = useDesktopLayout()
   const { address, isConnected, chainId } = useAccount()
+  const { connectors, connect, isPending: connectPending } = useConnect()
+  const { switchChain, isPending: switchPending } = useSwitchChain()
   const { balance } = useUsdcBalance(address)
   const { data: ethBalance } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
   const { data: markets } = useEasyMarkets()
@@ -60,7 +67,6 @@ export function TradeSetupScreen() {
   const isLong = direction === "up"
   const marketLabel = marketInfo?.symbol ?? "Market"
   const directionLabel = direction === "up" ? "Price Up" : "Price Down"
-  const walletOnArbitrum = isConnected && chainId === ARBITRUM_CHAIN_ID
   const hasExistingSameDirectionPosition = !!(marketInfo && walletPositions && findMatchingPosition(walletPositions, {
     marketAddress: marketInfo.address,
     isLong,
@@ -84,27 +90,33 @@ export function TradeSetupScreen() {
   const approval = useUsdcApproval(collateralRaw, approveAll)
   const createOrder = useCreateOrder()
 
-  const canTrade = !!(quote?.canTrade && walletOnArbitrum)
-  const blockButtonLabel = (() => {
-    if (!quote) return "Loading market..."
-    if (!isConnected) return "Connect wallet"
-    if (chainId !== ARBITRUM_CHAIN_ID) return "Switch to Arbitrum"
-    return getTradeBlockButtonLabel(quote.blockReason)
-  })()
-  const blockExplanation = (() => {
-    if (!quote) return null
-    if (!isConnected) return "Connect your wallet to review and open a real GMX V2 trade."
-    if (chainId !== ARBITRUM_CHAIN_ID) return "Switch your wallet to Arbitrum to trade on GMX V2."
-    return getTradeBlockExplanation(quote.blockReason, {
-      riskUsd,
-      usdcBalance: balance.value,
-      marketLabel,
-      directionLabel,
-    })
-  })()
-  const showApproval = canTrade && approval.needsApproval
+  const walletReady = isConnected && chainId === ARBITRUM_CHAIN_ID
+  const canTrade = !!(quote?.canTrade && walletReady)
+  const quoteBlocked = walletReady && quote && !quote.canTrade
+  const showApproval = canTrade && !approval.loadingAllowance && approval.needsApproval
+  const showOpenTrade = canTrade && !approval.loadingAllowance && !approval.needsApproval
   const isBusy = store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
   const chartHeight = isDesktop ? 300 : 170
+
+  const primaryConnector =
+    connectors.find((c) => c.id === "injected" || c.type === "injected") ?? connectors[0]
+
+  const handleConnectWallet = () => {
+    if (primaryConnector) connect({ connector: primaryConnector })
+  }
+
+  const handleSwitchNetwork = () => {
+    switchChain({ chainId: ARBITRUM_CHAIN_ID })
+  }
+
+  const quoteBlockExplanation = quoteBlocked
+    ? getTradeBlockExplanation(quote.blockReason, {
+        riskUsd,
+        usdcBalance: balance.value,
+        marketLabel,
+        directionLabel,
+      })
+    : null
 
   useEffect(() => {
     const acknowledged = typeof window !== "undefined" && window.localStorage.getItem("easygmx:riskAcknowledged") === "true"
@@ -183,7 +195,7 @@ export function TradeSetupScreen() {
   const approvalLabel = (() => {
     if (store.orderPhase === "approval") return "Approving USDC..."
     if (approveAll) return "Allow GMX to use USDC"
-    return `Allow GMX to use $${formatUsd(riskUsd)} USDC`
+    return `Allow GMX to use ${formatUsdcAmount(riskUsd)} USDC`
   })()
   const tradeLabel = (() => {
     if (store.orderPhase === "signing" || createOrder.isPending) return "Check wallet..."
@@ -290,7 +302,7 @@ export function TradeSetupScreen() {
             </div>
             <div className="trade-review-row">
               <span className="trade-review-label">Risk</span>
-              <span className="trade-review-value">${formatUsd(riskUsd)}</span>
+              <span className="trade-review-value">{formatUsdcAmount(riskUsd)} USDC</span>
             </div>
             <div className="trade-review-row">
               <span className="trade-review-label">Position size</span>
@@ -306,7 +318,7 @@ export function TradeSetupScreen() {
             </div>
             <div className="trade-review-row">
               <span className="trade-review-label">Max you can lose</span>
-              <span className="trade-review-value trade-review-value--loss">${formatUsd(riskUsd)}</span>
+              <span className="trade-review-value trade-review-value--loss">{formatUsdcAmount(riskUsd)} USDC</span>
             </div>
             {feeBreakdown && (
               <div className="trade-review-row">
@@ -353,25 +365,65 @@ export function TradeSetupScreen() {
         </div>
       )}
 
-      {!canTrade ? (
+      {!isConnected ? (
+        <div>
+          <button
+            type="button"
+            onClick={handleConnectWallet}
+            disabled={!primaryConnector || connectPending}
+            className="trade-action-btn trade-action-btn--wallet"
+          >
+            {connectPending ? "Connecting..." : "Connect wallet"}
+          </button>
+          <p className="trade-block-explanation">
+            Connect your wallet to review and open a real GMX V2 trade.
+          </p>
+        </div>
+      ) : chainId !== ARBITRUM_CHAIN_ID ? (
+        <div>
+          <button
+            type="button"
+            onClick={handleSwitchNetwork}
+            disabled={switchPending}
+            className="trade-action-btn trade-action-btn--wallet"
+          >
+            {switchPending ? "Switching..." : "Switch to Arbitrum"}
+          </button>
+          <p className="trade-block-explanation">
+            Switch your wallet to Arbitrum to trade on GMX V2.
+          </p>
+        </div>
+      ) : !quote ? (
         <div>
           <button type="button" disabled className="trade-action-btn trade-action-btn--blocked">
-            {blockButtonLabel}
+            Loading market...
           </button>
-          {blockExplanation && (
-            <p className="trade-block-explanation">{blockExplanation}</p>
+        </div>
+      ) : quoteBlocked ? (
+        <div>
+          <button type="button" disabled className="trade-action-btn trade-action-btn--blocked">
+            {getTradeBlockButtonLabel(quote.blockReason)}
+          </button>
+          {quoteBlockExplanation && (
+            <p className="trade-block-explanation">{quoteBlockExplanation}</p>
           )}
         </div>
       ) : (
         <>
           <div className="trade-risk-strip">
             <p className="trade-risk-strip-main">
-              Risk: You can lose your full ${formatUsd(riskUsd)} USDC risk amount.
+              Risk: You can lose your full {formatUsdcAmount(riskUsd)} USDC risk amount.
             </p>
             <p className="trade-risk-strip-sub">
               EasyGMX simplifies the interface; it does not remove GMX trading risk.
             </p>
           </div>
+
+          {approval.loadingAllowance && (
+            <button type="button" disabled className="trade-action-btn trade-action-btn--checking">
+              Checking USDC allowance...
+            </button>
+          )}
 
           {showApproval && (
             <div className="space-y-2">
@@ -397,13 +449,15 @@ export function TradeSetupScreen() {
             </div>
           )}
 
-          <button
-            onClick={handleOpenTrade}
-            disabled={approval.needsApproval || isBusy}
-            className={`trade-action-btn ${isLong ? "trade-action-btn--long" : "trade-action-btn--short"}`}
-          >
-            {tradeLabel}
-          </button>
+          {showOpenTrade && (
+            <button
+              onClick={handleOpenTrade}
+              disabled={isBusy}
+              className={`trade-action-btn ${isLong ? "trade-action-btn--long" : "trade-action-btn--short"}`}
+            >
+              {tradeLabel}
+            </button>
+          )}
         </>
       )}
     </div>

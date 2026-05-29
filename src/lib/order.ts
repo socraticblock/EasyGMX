@@ -77,7 +77,10 @@ export function useUsdcApproval(amountRaw: bigint, approveAll = false) {
     refetchInterval: 10_000,
   })
 
-  const needsApproval = amountRaw > 0n && (!allowance || allowance < amountRaw)
+  const needsApproval =
+    allowance !== undefined &&
+    amountRaw > 0n &&
+    allowance < amountRaw
 
   const approveMutation = useMutation({
     mutationFn: async () => {

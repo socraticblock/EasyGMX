@@ -75,6 +75,16 @@ export function MarketChart({
   }, [isLong])
 
   useEffect(() => {
+    chartRef.current?.applyOptions({
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: timeframe === "1m" || timeframe === "5m",
+        borderColor: "#1e1e30",
+      },
+    })
+  }, [timeframe])
+
+  useEffect(() => {
     if (!seriesRef.current || !chartRef.current) return
     seriesRef.current.setData(candles.map((c) => ({ time: c.time as any, value: c.close })))
     if (entryLineRef.current) {
