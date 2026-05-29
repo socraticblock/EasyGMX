@@ -1,9 +1,17 @@
 "use client"
 
 import { createChart, AreaSeries, type IChartApi, type ISeriesApi } from "lightweight-charts"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type CSSProperties } from "react"
 import { TIMEFRAMES, type Timeframe, useMarketCandles } from "@/lib/gmxCandles"
 import type { MarketKey } from "@/lib/contracts"
+
+type ChartHeight = number | string
+
+function measuredHeight(el: HTMLDivElement, fallback: ChartHeight): number {
+  const height = Math.round(el.getBoundingClientRect().height)
+  if (height > 0) return height
+  return typeof fallback === "number" ? fallback : 220
+}
 
 export function MarketChart({
   marketKey,
@@ -18,7 +26,7 @@ export function MarketChart({
   onTimeframeChange: (t: Timeframe) => void
   entryPrice?: number
   isLong?: boolean
-  chartHeight?: number
+  chartHeight?: ChartHeight
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -29,12 +37,13 @@ export function MarketChart({
   useEffect(() => {
     if (!containerRef.current || chartRef.current) return
 
+    const container = containerRef.current
     const lineColor = isLong ? "#22c55e" : "#ef4444"
-    const chart = createChart(containerRef.current, {
+    const chart = createChart(container, {
       layout: { background: { color: "#0a0a0f" }, textColor: "#7d8092", fontSize: 11 },
       grid: { vertLines: { color: "#1e1e3030" }, horzLines: { color: "#1e1e3030" } },
-      width: containerRef.current.clientWidth,
-      height: chartHeight,
+      width: container.clientWidth,
+      height: measuredHeight(container, chartHeight),
       timeScale: { timeVisible: true, secondsVisible: timeframe === "1m" || timeframe === "5m", borderColor: "#1e1e30" },
       rightPriceScale: { borderColor: "#1e1e30" },
       crosshair: { mode: 0 },
@@ -50,12 +59,19 @@ export function MarketChart({
     chartRef.current = chart
     seriesRef.current = series
 
-    const onResize = () => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth })
+    const resize = () => {
+      chart.applyOptions({
+        width: container.clientWidth,
+        height: measuredHeight(container, chartHeight),
+      })
     }
-    window.addEventListener("resize", onResize)
+
+    const observer = new ResizeObserver(resize)
+    observer.observe(container)
+    resize()
+
     return () => {
-      window.removeEventListener("resize", onResize)
+      observer.disconnect()
       chart.remove()
       chartRef.current = null
       seriesRef.current = null
@@ -63,7 +79,8 @@ export function MarketChart({
   }, [])
 
   useEffect(() => {
-    chartRef.current?.applyOptions({ height: chartHeight })
+    if (!chartRef.current || !containerRef.current) return
+    chartRef.current.applyOptions({ height: measuredHeight(containerRef.current, chartHeight) })
   }, [chartHeight])
 
   useEffect(() => {
@@ -102,6 +119,8 @@ export function MarketChart({
     chartRef.current.timeScale().fitContent()
   }, [candles, entryPrice])
 
+  const chartStyle: CSSProperties = { height: chartHeight }
+
   return (
     <div className="space-y-2">
       <div className="flex gap-1 overflow-x-auto pb-1">
@@ -119,7 +138,7 @@ export function MarketChart({
         ))}
       </div>
       <div className="relative">
-        <div ref={containerRef} className="w-full" style={{ height: chartHeight }} />
+        <div ref={containerRef} className="w-full" style={chartStyle} />
         {(isLoading || error || candles.length === 0) && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground pointer-events-none">
             {error ? "Chart data unavailable" : "Loading chart..."}
