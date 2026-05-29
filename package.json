@@ -7,6 +7,8 @@
     "build": "next build && node scripts/copy-standalone-assets.mjs",
     "start": "node scripts/start-standalone.mjs",
     "lint": "eslint .",
+    "test:visual": "playwright test tests/e2e/responsive.spec.ts",
+    "test:e2e": "playwright test",
     "check:gmx-markets": "node scripts/check-gmx-markets.mjs",
     "check:gmx-referral": "node scripts/check-gmx-referral.mjs",
     "measure:gmx-costs": "node scripts/measure-gmx-costs.mjs",
@@ -88,6 +90,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

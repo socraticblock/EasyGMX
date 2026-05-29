@@ -24,16 +24,18 @@ export default function ReferralTransparencyPage() {
     : "—"
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e30]">
-        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+    <div className="app-screen">
+      <header className="app-header">
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground shrink-0">
           &larr; Back
         </Link>
-        <h1 className="text-sm font-semibold">Referral transparency</h1>
-        <WalletButton />
+        <h1 className="app-header-title text-sm font-semibold">Referral transparency</h1>
+        <div className="shrink-0">
+          <WalletButton />
+        </div>
       </header>
 
-      <div className="flex-1 px-4 py-6 max-w-lg mx-auto w-full space-y-6">
+      <main className="app-container referral-content flex-1 py-6 space-y-6">
         <div className="space-y-2">
           <h2 className="text-xl font-bold">EasyGMX Referral Transparency</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
@@ -99,7 +101,7 @@ export default function ReferralTransparencyPage() {
             Connect a wallet to see whether your address is attributed to EasyGMX or another referral code.
           </p>
         )}
-      </div>
+      </main>
     </div>
   )
 }

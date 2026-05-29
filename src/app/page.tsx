@@ -9,6 +9,7 @@ import { PositionLiveScreen } from "@/components/PositionLiveScreen"
 import { TradeClosedScreen } from "@/components/TradeClosedScreen"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 import { WalletDisconnectGuard } from "@/components/WalletDisconnectGuard"
+import { E2EBridge } from "@/components/E2EBridge"
 
 export default function EasyGMX() {
   const { selectedMarket, activePosition, orderPhase, lastClosedTrade, showMarketPicker } = useTradeStore()
@@ -25,6 +26,7 @@ export default function EasyGMX() {
   return (
     <ErrorBoundary>
       <WalletDisconnectGuard>
+        <E2EBridge />
         {screen}
       </WalletDisconnectGuard>
     </ErrorBoundary>

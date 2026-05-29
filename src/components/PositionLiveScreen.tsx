@@ -10,6 +10,8 @@ import { useEasyMarkets } from "@/lib/gmxMarketData"
 import { MarketChart } from "@/components/MarketChart"
 import { ReferralDebugStrip } from "@/components/ReferralDebugStrip"
 
+const CHART_HEIGHT = "clamp(170px, 30vw, 500px)"
+
 function formatUsd(n: number): string {
   if (!Number.isFinite(n)) return "-"
   if (Math.abs(n) >= 1) return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -123,17 +125,28 @@ export function PositionLiveScreen() {
     : "Close full position"
   const confirmCloseLabel = `Close ${marketLabel} position`
 
+  const closeButton = (
+    <button
+      onClick={() => !isClosing && setShowCloseReview(true)}
+      disabled={isClosing}
+      className="w-full min-h-14 rounded-xl font-semibold text-sm border transition-all duration-150 active:scale-[0.98] disabled:opacity-50
+        bg-[#12121a] text-foreground border-[#1e1e30] hover:border-[#418cf5]/30"
+    >
+      {closeButtonLabel}
+    </button>
+  )
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a0f]">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e30]">
-        <div className="flex items-center gap-2">
-          <span className="text-lg leading-none">{marketInfo?.icon}</span>
-          <span className="font-semibold text-sm">{marketInfo?.symbol} {directionLabel}</span>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider bg-[#418cf5]/15 text-[#418cf5]">
+    <div className="app-screen">
+      <header className="app-header">
+        <div className="app-header-title flex items-center justify-center gap-2 min-w-0">
+          <span className="text-lg leading-none shrink-0">{marketInfo?.icon}</span>
+          <span className="font-semibold text-sm truncate">{marketInfo?.symbol} {directionLabel}</span>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider bg-[#418cf5]/15 text-[#418cf5] shrink-0">
             {activePosition.leverage}x
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${activePosition.isOnChain ? "bg-[#22c55e]" : "bg-yellow-500"}`} />
           <span className="text-[11px] text-muted-foreground">
             {activePosition.isOnChain ? "GMX synced" : "Confirming..."}
@@ -143,87 +156,95 @@ export function PositionLiveScreen() {
 
       <ReferralDebugStrip />
 
-      <div className="px-4 py-4">
-        <MarketChart
-          marketKey={activePosition.marketKey}
-          timeframe={liveChartTimeframe}
-          onTimeframeChange={setLiveChartTimeframe}
-          entryPrice={activePosition.entryPrice}
-          isLong={isLong}
-        />
-      </div>
-
-      <div className="px-4 py-2.5 flex justify-between border-y border-[#1e1e30] text-sm">
-        <div>
-          <span className="text-muted-foreground text-[11px]">Entry </span>
-          <span className="font-mono tabular-nums">${formatUsd(activePosition.entryPrice)}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground text-[11px]">Now </span>
-          <span className={`font-mono tabular-nums font-semibold ${pnlPositive ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
-            ${formatUsd(activePosition.currentPrice)}
-          </span>
-        </div>
-      </div>
-
-      <div className="px-4 py-6 text-center">
-        <div className="text-[11px] text-muted-foreground mb-1.5">
-          Risk ${formatUsd(activePosition.riskUsd)} &middot; Position ${formatUsd(activePosition.sizeUsd)}
-        </div>
-        <div className={`text-4xl font-bold font-mono tabular-nums ${pnlPositive ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
-          {formatPnl(activePosition.pnlUsd)}
-        </div>
-        <div className={`text-sm font-mono tabular-nums mt-0.5 ${pnlPositive ? "text-[#22c55e]/70" : "text-[#ef4444]/70"}`}>
-          {activePosition.pnlPercent >= 0 ? "+" : ""}{activePosition.pnlPercent.toFixed(2)}%
-        </div>
-      </div>
-
-      <div className="px-4 py-3 space-y-2 border-t border-[#1e1e30]">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Liquidation</span>
-          <span className="font-mono tabular-nums text-[#ef4444]/70">${formatUsd(activePosition.liquidationPrice)}</span>
-        </div>
-        <details className="text-sm">
-          <summary className="cursor-pointer text-[#418cf5]/70 text-[11px]">Details</summary>
-          <div className="pt-2 space-y-1 text-[11px] text-muted-foreground">
-            <p>Position size: ${formatUsd(activePosition.sizeUsd)}</p>
-            <p>Risk amount: ${formatUsd(activePosition.riskUsd)}</p>
-            <p>Borrow fee: ${formatUsd(activePosition.borrowFeeUsd ?? 0)}</p>
-            <p>Funding fee: ${formatUsd(activePosition.fundingFeeUsd ?? 0)}</p>
-            {activePosition.openTxHash && (
-              <a href={arbiscanTxLink(activePosition.openTxHash)} target="_blank" rel="noopener noreferrer" className="block text-[#418cf5]/70">
-                Open transaction &rarr;
-              </a>
-            )}
-            {activePosition.closeTxHash && (
-              <a href={arbiscanTxLink(activePosition.closeTxHash)} target="_blank" rel="noopener noreferrer" className="block text-[#418cf5]/70">
-                Close transaction &rarr;
-              </a>
-            )}
+      <div className="live-position-body">
+        <div className="live-position-grid">
+          <div className="live-position-chart-card">
+            <MarketChart
+              marketKey={activePosition.marketKey}
+              timeframe={liveChartTimeframe}
+              onTimeframeChange={setLiveChartTimeframe}
+              entryPrice={activePosition.entryPrice}
+              isLong={isLong}
+              chartHeight={CHART_HEIGHT}
+            />
+            <div className="mt-3 pt-3 border-t border-[#1e1e30] flex justify-between text-sm">
+              <div>
+                <span className="text-muted-foreground text-[11px]">Entry </span>
+                <span className="font-mono tabular-nums">${formatUsd(activePosition.entryPrice)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground text-[11px]">Now </span>
+                <span className={`font-mono tabular-nums font-semibold ${pnlPositive ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                  ${formatUsd(activePosition.currentPrice)}
+                </span>
+              </div>
+            </div>
           </div>
-        </details>
+
+          <div className="live-position-summary-card space-y-4">
+            <div className="text-center">
+              <div className="text-[11px] text-muted-foreground mb-1.5">
+                Risk ${formatUsd(activePosition.riskUsd)} &middot; Position ${formatUsd(activePosition.sizeUsd)}
+              </div>
+              <div className={`text-4xl font-bold font-mono tabular-nums ${pnlPositive ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                {formatPnl(activePosition.pnlUsd)}
+              </div>
+              <div className={`text-sm font-mono tabular-nums mt-0.5 ${pnlPositive ? "text-[#22c55e]/70" : "text-[#ef4444]/70"}`}>
+                {activePosition.pnlPercent >= 0 ? "+" : ""}{activePosition.pnlPercent.toFixed(2)}%
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-[#1e1e30]">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Liquidation</span>
+                <span className="font-mono tabular-nums text-[#ef4444]/70">${formatUsd(activePosition.liquidationPrice)}</span>
+              </div>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-[#418cf5]/70 text-[11px]">Details</summary>
+                <div className="pt-2 space-y-1 text-[11px] text-muted-foreground">
+                  <p>Position size: ${formatUsd(activePosition.sizeUsd)}</p>
+                  <p>Risk amount: ${formatUsd(activePosition.riskUsd)}</p>
+                  <p>Borrow fee: ${formatUsd(activePosition.borrowFeeUsd ?? 0)}</p>
+                  <p>Funding fee: ${formatUsd(activePosition.fundingFeeUsd ?? 0)}</p>
+                  {activePosition.openTxHash && (
+                    <a href={arbiscanTxLink(activePosition.openTxHash)} target="_blank" rel="noopener noreferrer" className="block text-[#418cf5]/70">
+                      Open transaction &rarr;
+                    </a>
+                  )}
+                  {activePosition.closeTxHash && (
+                    <a href={arbiscanTxLink(activePosition.closeTxHash)} target="_blank" rel="noopener noreferrer" className="block text-[#418cf5]/70">
+                      Close transaction &rarr;
+                    </a>
+                  )}
+                </div>
+              </details>
+            </div>
+
+            {closeError && (
+              <div className="hidden lg:block rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 p-3 text-sm text-[#ef4444]">
+                {closeError}
+              </div>
+            )}
+
+            <div className="live-close-action--desktop hidden lg:block pt-2">
+              {closeButton}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {closeError && (
-        <div className="mx-4 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 p-3 text-sm text-[#ef4444]">
-          {closeError}
-        </div>
-      )}
-
-      <div className="mt-auto px-4 py-4 border-t border-[#1e1e30]">
-        <button
-          onClick={() => !isClosing && setShowCloseReview(true)}
-          disabled={isClosing}
-          className="w-full min-h-14 rounded-xl font-semibold text-sm border transition-all duration-150 active:scale-[0.98] disabled:opacity-50
-            bg-[#12121a] text-foreground border-[#1e1e30] hover:border-[#418cf5]/30"
-        >
-          {closeButtonLabel}
-        </button>
+      <div className="live-close-action lg:hidden">
+        {closeError && (
+          <div className="mb-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 p-3 text-sm text-[#ef4444]">
+            {closeError}
+          </div>
+        )}
+        {closeButton}
       </div>
 
       {showCloseReview && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
-          <div className="max-w-sm w-full rounded-xl bg-[#12121a] border border-[#1e1e30] p-5 space-y-4">
+        <div className="responsive-dialog-shell">
+          <div className="responsive-dialog-panel space-y-4">
             <h2 className="text-lg font-bold">Close full position</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               This closes your entire GMX position for this market and direction. This cannot be undone from EasyGMX.

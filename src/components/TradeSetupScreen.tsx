@@ -32,17 +32,7 @@ function formatUsd(n: number): string {
   return n.toFixed(6)
 }
 
-function useDesktopLayout() {
-  const [isDesktop, setIsDesktop] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
-    const update = () => setIsDesktop(mq.matches)
-    update()
-    mq.addEventListener("change", update)
-    return () => mq.removeEventListener("change", update)
-  }, [])
-  return isDesktop
-}
+const CHART_HEIGHT = "clamp(170px, 30vw, 500px)"
 
 export function TradeSetupScreen() {
   const store = useTradeStore()
@@ -52,7 +42,6 @@ export function TradeSetupScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [approveAll, setApproveAll] = useState(false)
   const [showRiskAck, setShowRiskAck] = useState(false)
-  const isDesktop = useDesktopLayout()
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
@@ -96,7 +85,6 @@ export function TradeSetupScreen() {
   const showApproval = canTrade && !approval.loadingAllowance && approval.needsApproval
   const showOpenTrade = canTrade && !approval.loadingAllowance && !approval.needsApproval
   const isBusy = store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
-  const chartHeight = isDesktop ? 300 : 170
 
   const primaryConnector =
     connectors.find((c) => c.id === "injected" || c.type === "injected") ?? connectors[0]
@@ -207,160 +195,8 @@ export function TradeSetupScreen() {
   const change1d = market?.change1dPercent ?? 0
   const changePositive = change1d >= 0
 
-  const orderTicket = (
-    <div className="trade-setup-ticket">
-      <div className="trade-order-ticket-card">
-        <div className="trade-ticket-section">
-          <div className="trade-ticket-section-title">1. Direction</div>
-          <p className="text-sm font-medium mb-2.5">Do you think {marketLabel} goes up or down?</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => store.setDirection("up")}
-              className={`h-11 rounded-xl font-semibold text-sm transition-all duration-150
-                ${direction === "up"
-                  ? "bg-[#22c55e] text-white shadow-lg shadow-[#22c55e]/20"
-                  : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#22c55e]/30"}`}
-            >
-              Price Up
-            </button>
-            <button
-              onClick={() => store.setDirection("down")}
-              className={`h-11 rounded-xl font-semibold text-sm transition-all duration-150
-                ${direction === "down"
-                  ? "bg-[#ef4444] text-white shadow-lg shadow-[#ef4444]/20"
-                  : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#ef4444]/30"}`}
-            >
-              Price Down
-            </button>
-          </div>
-        </div>
-
-        <div className="trade-ticket-section">
-          <div className="trade-ticket-section-title">2. USDC risk</div>
-          <div className="flex justify-between items-center gap-2 mb-2">
-            <p className="text-sm font-medium">How much USDC are you willing to put at risk?</p>
-            <span className="text-[11px] text-muted-foreground shrink-0">{balance.value.toFixed(2)} USDC</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {[10, 25, 50, 100].map((v) => (
-              <button
-                key={v}
-                onClick={() => {
-                  store.setRiskUsd(v)
-                  setCustomAmount(String(v))
-                }}
-                className={`h-9 rounded-lg text-xs font-medium transition-all
-                  ${riskUsd === v
-                    ? "bg-[#418cf5]/15 text-[#418cf5] border border-[#418cf5]/30"
-                    : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#418cf5]/20"}`}
-              >
-                ${v}
-              </button>
-            ))}
-          </div>
-          <input
-            type="number"
-            value={customAmount}
-            onChange={(e) => handleAmountInput(e.target.value)}
-            placeholder="10.00"
-            min={MIN_RISK_USD}
-            max={1000}
-            step="0.01"
-            inputMode="decimal"
-            className="w-full h-11 mt-2 rounded-xl bg-[#12121a] border border-[#1e1e30] px-4 text-sm font-mono tabular-nums
-                       focus:outline-none focus:border-[#418cf5]/40 focus:ring-1 focus:ring-[#418cf5]/20 transition-all"
-          />
-        </div>
-
-        <div className="trade-ticket-section">
-          <div className="trade-ticket-section-title">3. Leverage</div>
-          <div className="grid grid-cols-2 gap-2">
-            {([5, 10] as const).map((l) => (
-              <button
-                key={l}
-                onClick={() => store.setLeverage(l)}
-                className={`h-10 rounded-lg text-sm font-semibold transition-all
-                  ${leverage === l
-                    ? "bg-[#418cf5]/15 text-[#418cf5] border border-[#418cf5]/30"
-                    : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#418cf5]/20"}`}
-              >
-                {l}x
-              </button>
-            ))}
-          </div>
-          {leverage === 10 && (
-            <p className="trade-leverage-warning mt-2">
-              10x leverage is higher risk. A smaller {marketLabel} price move can liquidate your position.
-            </p>
-          )}
-        </div>
-
-        <div className="trade-ticket-section">
-          <div className="trade-ticket-section-title">4. Review GMX order</div>
-          <div className="trade-review-box space-y-0">
-            <div className="trade-review-row">
-              <span className="trade-review-label">Market</span>
-              <span className="trade-review-value">{marketInfo?.symbol} {directionLabel}</span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Risk</span>
-              <span className="trade-review-value">{formatUsdcAmount(riskUsd)} USDC</span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Position size</span>
-              <span className="trade-review-value">${formatUsd(quote?.sizeUsd ?? 0)} at {leverage}x</span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Estimated entry</span>
-              <span className="trade-review-value">${formatUsd(quote?.estimatedEntryPrice ?? 0)}</span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Estimated liquidation</span>
-              <span className="trade-review-value trade-review-value--liquidation">${formatUsd(quote?.liquidationPrice ?? 0)}</span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Max you can lose</span>
-              <span className="trade-review-value trade-review-value--loss">{formatUsdcAmount(riskUsd)} USDC</span>
-            </div>
-            {feeBreakdown && (
-              <div className="trade-review-row">
-                <span className="trade-review-label">Est. GMX fees</span>
-                <span className="trade-review-value text-xs">
-                  ${feeBreakdown.totalLowUsd.toFixed(2)}–${feeBreakdown.totalHighUsd.toFixed(2)}
-                </span>
-              </div>
-            )}
-            <div className="trade-review-row">
-              <span className="trade-review-label">Network / execution (est.)</span>
-              <span className="trade-review-value text-xs">
-                ~{executionFeeEth.toFixed(6)} ETH
-                {feeBreakdown && ethUsdPrice ? ` (~$${feeBreakdown.executionFeeUsd.toFixed(2)})` : ""}
-              </span>
-            </div>
-            <div className="trade-review-row">
-              <span className="trade-review-label">Slippage tolerance</span>
-              <span className="trade-review-value">{(SLIPPAGE_BPS / 100).toFixed(1)}%</span>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground/80 leading-relaxed mt-3">
-            Borrow and funding fees are variable and can change while your position is open.
-          </p>
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="text-[11px] text-[#418cf5]/70 hover:text-[#418cf5] mt-2"
-          >
-            More details
-          </button>
-          {showDetails && quote && (
-            <div className="text-[11px] text-muted-foreground/80 space-y-1 pt-2 mt-2 border-t border-[#1e1e30] leading-relaxed">
-              <p>Powered by GMX V2. No extra EasyGMX trading fee.</p>
-              <p>Borrow rate: {quote.borrowRate?.toFixed(6) ?? "-"}%</p>
-              <p>Funding rate: {quote.fundingRate?.toFixed(6) ?? "-"}%</p>
-            </div>
-          )}
-        </div>
-      </div>
-
+  const tradeActions = (
+    <>
       {(store.orderError || approval.approveError) && (
         <div className="rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/20 p-3 text-sm text-[#ef4444]">
           {store.orderError || userFacingGmxError(approval.approveError)}
@@ -462,28 +298,31 @@ export function TradeSetupScreen() {
           )}
         </>
       )}
-    </div>
+    </>
   )
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-[#1e1e30]">
+    <div className="app-screen">
+      <header className="app-header">
         <button
+          type="button"
           onClick={() => {
             store.setSelectedMarket(null)
             store.resetOrderFlow()
           }}
-          className="text-muted-foreground hover:text-foreground transition-colors text-sm"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
         >
           &larr; Back
         </button>
-        <div className="flex-1 text-center">
+        <div className="app-header-title">
           <span className="font-semibold text-sm">{marketInfo?.icon} {marketInfo?.symbol}</span>
           <span className="ml-2 font-mono text-xs tabular-nums text-muted-foreground">
             {market ? `$${formatUsd(market.price)}` : "-"}
           </span>
         </div>
-        <WalletButton />
+        <div className="shrink-0">
+          <WalletButton />
+        </div>
       </header>
 
       <ReferralDebugStrip />
@@ -491,13 +330,15 @@ export function TradeSetupScreen() {
       <div className="trade-setup-body">
         <div className="trade-setup-grid">
           <div className="trade-setup-chart-col">
-            <MarketChart
-              marketKey={store.selectedMarket}
-              timeframe={chartTimeframe}
-              onTimeframeChange={store.setChartTimeframe}
-              isLong={isLong}
-              chartHeight={chartHeight}
-            />
+            <div className="trade-chart-shell">
+              <MarketChart
+                marketKey={store.selectedMarket}
+                timeframe={chartTimeframe}
+                onTimeframeChange={store.setChartTimeframe}
+                isLong={isLong}
+                chartHeight={CHART_HEIGHT}
+              />
+            </div>
             {market && (
               <div className="trade-market-note">
                 <div className="trade-market-note-label">GMX market price</div>
@@ -510,15 +351,178 @@ export function TradeSetupScreen() {
                 </p>
               </div>
             )}
+            <p className="trade-mobile-chart-hint">
+              Chart shows GMX oracle price. Scroll the ticket below to review your order, or use the action at the bottom.
+            </p>
           </div>
 
-          {orderTicket}
+          <div className="trade-setup-ticket">
+            <div className="trade-order-ticket-card">
+              <div className="trade-ticket-section">
+                <div className="trade-ticket-section-title">1. Direction</div>
+                <p className="text-sm font-medium mb-2.5">Do you think {marketLabel} goes up or down?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => store.setDirection("up")}
+                    className={`h-11 rounded-xl font-semibold text-sm transition-all duration-150
+                      ${direction === "up"
+                        ? "bg-[#22c55e] text-white shadow-lg shadow-[#22c55e]/20"
+                        : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#22c55e]/30"}`}
+                  >
+                    Price Up
+                  </button>
+                  <button
+                    onClick={() => store.setDirection("down")}
+                    className={`h-11 rounded-xl font-semibold text-sm transition-all duration-150
+                      ${direction === "down"
+                        ? "bg-[#ef4444] text-white shadow-lg shadow-[#ef4444]/20"
+                        : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#ef4444]/30"}`}
+                  >
+                    Price Down
+                  </button>
+                </div>
+              </div>
+
+              <div className="trade-ticket-section">
+                <div className="trade-ticket-section-title">2. USDC risk</div>
+                <div className="flex justify-between items-center gap-2 mb-2">
+                  <p className="text-sm font-medium">How much USDC are you willing to put at risk?</p>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{balance.value.toFixed(2)} USDC</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[10, 25, 50, 100].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => {
+                        store.setRiskUsd(v)
+                        setCustomAmount(String(v))
+                      }}
+                      className={`h-9 rounded-lg text-xs font-medium transition-all
+                        ${riskUsd === v
+                          ? "bg-[#418cf5]/15 text-[#418cf5] border border-[#418cf5]/30"
+                          : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#418cf5]/20"}`}
+                    >
+                      ${v}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  value={customAmount}
+                  onChange={(e) => handleAmountInput(e.target.value)}
+                  placeholder="10.00"
+                  min={MIN_RISK_USD}
+                  max={1000}
+                  step="0.01"
+                  inputMode="decimal"
+                  className="w-full h-11 mt-2 rounded-xl bg-[#12121a] border border-[#1e1e30] px-4 text-sm font-mono tabular-nums
+                             focus:outline-none focus:border-[#418cf5]/40 focus:ring-1 focus:ring-[#418cf5]/20 transition-all"
+                />
+              </div>
+
+              <div className="trade-ticket-section">
+                <div className="trade-ticket-section-title">3. Leverage</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {([5, 10] as const).map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => store.setLeverage(l)}
+                      className={`h-10 rounded-lg text-sm font-semibold transition-all
+                        ${leverage === l
+                          ? "bg-[#418cf5]/15 text-[#418cf5] border border-[#418cf5]/30"
+                          : "bg-[#12121a] border border-[#1e1e30] text-muted-foreground hover:border-[#418cf5]/20"}`}
+                    >
+                      {l}x
+                    </button>
+                  ))}
+                </div>
+                {leverage === 10 && (
+                  <p className="trade-leverage-warning mt-2">
+                    10x leverage is higher risk. A smaller {marketLabel} price move can liquidate your position.
+                  </p>
+                )}
+              </div>
+
+              <div className="trade-ticket-section">
+                <div className="trade-ticket-section-title">4. Review GMX order</div>
+                <div className="trade-review-box space-y-0">
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Market</span>
+                    <span className="trade-review-value">{marketInfo?.symbol} {directionLabel}</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Risk</span>
+                    <span className="trade-review-value">{formatUsdcAmount(riskUsd)} USDC</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Position size</span>
+                    <span className="trade-review-value">${formatUsd(quote?.sizeUsd ?? 0)} at {leverage}x</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Estimated entry</span>
+                    <span className="trade-review-value">${formatUsd(quote?.estimatedEntryPrice ?? 0)}</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Estimated liquidation</span>
+                    <span className="trade-review-value trade-review-value--liquidation">${formatUsd(quote?.liquidationPrice ?? 0)}</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Max you can lose</span>
+                    <span className="trade-review-value trade-review-value--loss">{formatUsdcAmount(riskUsd)} USDC</span>
+                  </div>
+                  {feeBreakdown && (
+                    <div className="trade-review-row">
+                      <span className="trade-review-label">Est. GMX fees</span>
+                      <span className="trade-review-value text-xs">
+                        ${feeBreakdown.totalLowUsd.toFixed(2)}–${feeBreakdown.totalHighUsd.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Network / execution (est.)</span>
+                    <span className="trade-review-value text-xs">
+                      ~{executionFeeEth.toFixed(6)} ETH
+                      {feeBreakdown && ethUsdPrice ? ` (~$${feeBreakdown.executionFeeUsd.toFixed(2)})` : ""}
+                    </span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">Slippage tolerance</span>
+                    <span className="trade-review-value">{(SLIPPAGE_BPS / 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground/80 leading-relaxed mt-3">
+                  Borrow and funding fees are variable and can change while your position is open.
+                </p>
+                <button
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="text-[11px] text-[#418cf5]/70 hover:text-[#418cf5] mt-2"
+                >
+                  More details
+                </button>
+                {showDetails && quote && (
+                  <div className="text-[11px] text-muted-foreground/80 space-y-1 pt-2 mt-2 border-t border-[#1e1e30] leading-relaxed">
+                    <p>Powered by GMX V2. No extra EasyGMX trading fee.</p>
+                    <p>Borrow rate: {quote.borrowRate?.toFixed(6) ?? "-"}%</p>
+                    <p>Funding rate: {quote.fundingRate?.toFixed(6) ?? "-"}%</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="trade-action-region trade-action-region--desktop">
+              {tradeActions}
+            </div>
+          </div>
         </div>
       </div>
 
+      <div className="trade-action-sticky trade-action-sticky--mobile">
+        {tradeActions}
+      </div>
+
       {showRiskAck && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4">
-          <div className="max-w-sm w-full rounded-xl bg-[#12121a] border border-[#1e1e30] p-5 space-y-4">
+        <div className="responsive-dialog-shell">
+          <div className="responsive-dialog-panel space-y-4">
             <h2 className="text-lg font-bold">Real GMX trade</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               EasyGMX uses real GMX trades. You can lose your full risk amount. Prices can move quickly. Only trade what you are willing to lose.
