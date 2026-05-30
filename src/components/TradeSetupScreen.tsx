@@ -50,7 +50,17 @@ export function TradeSetupScreen() {
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
-  const { balance, legacyBalance, isLoading: balanceLoading } = useUsdcBalance(address)
+  const {
+    balance,
+    legacyBalance,
+    isLoading: balanceLoading,
+    isFetching: balanceFetching,
+    hasReadError,
+    nativeError,
+    legacyError,
+    nativeTokenAddress,
+    legacyTokenAddress,
+  } = useUsdcBalance(address)
   const { data: ethBalance, isLoading: ethBalanceLoading } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
   const { data: markets, dataUpdatedAt: marketsUpdatedAt, refetch: refetchMarkets, isFetching: marketsFetching } = useEasyMarkets()
   const { data: executionFee } = useGmxExecutionFee(store.selectedMarket)
@@ -88,7 +98,7 @@ export function TradeSetupScreen() {
   const approval = useUsdcApproval(collateralRaw, approveAll, payTokenAddress)
   const createOrder = useCreateOrder()
 
-  const balancesReady = walletReady && !balanceLoading && !ethBalanceLoading
+  const balancesReady = walletReady && !balanceLoading && !ethBalanceLoading && !hasReadError
   const quoteAgeMs = marketsUpdatedAt ? Date.now() - marketsUpdatedAt : 0
   const quoteIsStale = walletReady && !!quote && quoteAgeMs > 90_000
   const canTrade = !!(quote?.canTrade && balancesReady && !quoteIsStale)
@@ -98,7 +108,7 @@ export function TradeSetupScreen() {
   const isBusy = store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
 
   useEffect(() => {
-    if (!walletReady || balanceLoading) return
+    if (!walletReady || balanceLoading || hasReadError) return
     const nativeEnough = balance.value >= riskUsd
     const legacyEnough = legacyBalance.value >= riskUsd
     if (!nativeEnough && legacyEnough) {
@@ -108,7 +118,7 @@ export function TradeSetupScreen() {
     if (!legacyEnough && nativeEnough) {
       setPayTokenAddress(TOKENS.USDC)
     }
-  }, [walletReady, balanceLoading, balance.value, legacyBalance.value, riskUsd])
+  }, [walletReady, balanceLoading, hasReadError, balance.value, legacyBalance.value, riskUsd])
 
   const primaryConnector =
     connectors.find((c) => c.id === "injected" || c.type === "injected") ?? connectors[0]
@@ -265,6 +275,15 @@ export function TradeSetupScreen() {
           </button>
           <p className="trade-block-explanation">
             EasyGMX is checking native USDC, bridged USDC.e, and ETH for execution costs.
+          </p>
+        </div>
+      ) : hasReadError ? (
+        <div>
+          <button type="button" disabled className="trade-action-btn trade-action-btn--blocked">
+            Could not read USDC balances
+          </button>
+          <p className="trade-block-explanation">
+            EasyGMX could not read one or more Arbitrum USDC contracts from the current RPC. Refresh, reconnect your wallet, or try another RPC/deployment config.
           </p>
         </div>
       ) : !quote ? (
@@ -441,6 +460,13 @@ export function TradeSetupScreen() {
                 </div>
                 {walletReady && (
                   <div className="mb-3 rounded-xl border border-[#1e1e30] bg-[#12121a]/70 p-3 text-[11px] leading-relaxed text-muted-foreground space-y-2">
+                    {hasReadError && (
+                      <div className="rounded-lg border border-[#ef4444]/20 bg-[#ef4444]/10 p-2 text-[#ef4444]">
+                        <p className="font-semibold">USDC balance read failed.</p>
+                        {nativeError && <p className="mt-1 break-words">Native USDC: {nativeError}</p>}
+                        {legacyError && <p className="mt-1 break-words">USDC.e: {legacyError}</p>}
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -448,7 +474,8 @@ export function TradeSetupScreen() {
                         className={`rounded-lg border px-3 py-2 text-left transition-colors ${!payTokenIsLegacy ? "border-[#418cf5]/35 bg-[#418cf5]/12 text-foreground" : "border-[#1e1e30] bg-[#0a0a0f] hover:border-[#418cf5]/20"}`}
                       >
                         <span className="block font-semibold">Native USDC</span>
-                        <span className="block font-mono">{balance.formatted}</span>
+                        <span className="block font-mono">{balance.hasData ? balance.formatted : balanceFetching ? "checking..." : "unread"}</span>
+                        <span className="mt-1 block break-all text-[9px] text-muted-foreground/70">{nativeTokenAddress}</span>
                       </button>
                       <button
                         type="button"
@@ -456,11 +483,15 @@ export function TradeSetupScreen() {
                         className={`rounded-lg border px-3 py-2 text-left transition-colors ${payTokenIsLegacy ? "border-[#418cf5]/35 bg-[#418cf5]/12 text-foreground" : "border-[#1e1e30] bg-[#0a0a0f] hover:border-[#418cf5]/20"}`}
                       >
                         <span className="block font-semibold">Bridged USDC.e</span>
-                        <span className="block font-mono">{legacyBalance.formatted}</span>
+                        <span className="block font-mono">{legacyBalance.hasData ? legacyBalance.formatted : balanceFetching ? "checking..." : "unread"}</span>
+                        <span className="mt-1 block break-all text-[9px] text-muted-foreground/70">{legacyTokenAddress}</span>
                       </button>
                     </div>
                     <p>
                       Native USDC uses the direct GMX path. Bridged USDC.e uses GMX routing into the native-USDC market collateral.
+                    </p>
+                    <p className="break-all text-[10px] text-muted-foreground/70">
+                      Connected: {address}. Chain: Arbitrum One ({ARBITRUM_CHAIN_ID}).
                     </p>
                   </div>
                 )}
