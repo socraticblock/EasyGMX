@@ -15,6 +15,7 @@ import {
   ARBISCAN_URL,
   RPC_URL,
   API_BASE,
+  GMX_SUBSQUID_URL,
   SLIPPAGE_BPS,
   type MarketKey,
   toUsd,
@@ -173,11 +174,13 @@ export function useCreateOrder() {
           chainId: ARBITRUM_CHAIN_ID,
           rpcUrl: RPC_URL,
           oracleUrl: API_BASE,
+          subsquidUrl: GMX_SUBSQUID_URL,
           publicClient,
           walletClient,
           account: address,
         }) as {
           setAccount?: (account: string) => void
+          callContract?: (...args: unknown[]) => Promise<unknown>
           orders?: {
             long?: (args: Record<string, unknown>) => Promise<unknown>
             short?: (args: Record<string, unknown>) => Promise<unknown>
@@ -185,22 +188,32 @@ export function useCreateOrder() {
         }
 
         sdk.setAccount?.(address)
+        const originalCallContract = sdk.callContract?.bind(sdk)
+        if (!originalCallContract) throw new Error("GMX SDK contract writer is not available")
+
+        let submittedTxHash: Hash | null = null
+        sdk.callContract = async (...args: unknown[]) => {
+          const result = await originalCallContract(...args)
+          submittedTxHash = normalizeHash(result)
+          return result
+        }
+
         const helper = params.isLong ? sdk.orders?.long : sdk.orders?.short
         if (!helper) throw new Error("GMX routed order helper is not available")
 
-        const result = await helper({
+        await helper({
           payAmount: toTokenRaw(params.collateralUsd, 6),
           marketAddress: marketInfo.address,
           payTokenAddress,
           collateralTokenAddress: TOKENS.USDC,
           allowedSlippageBps: SLIPPAGE_BPS,
           leverage: BigInt(params.leverage * 10_000),
+          referralCodeForTxn: getGmxReferralCodeBytes32(),
         })
 
-        const txHash = normalizeHash(result)
-        if (!txHash) throw new Error("GMX routed order did not return a transaction hash")
-        await publicClient.waitForTransactionReceipt({ hash: txHash })
-        return { orderKey: null, txHash }
+        if (!submittedTxHash) throw new Error("GMX routed order did not return a transaction hash")
+        await publicClient.waitForTransactionReceipt({ hash: submittedTxHash })
+        return { orderKey: null, txHash: submittedTxHash }
       }
 
       const collateralRaw = toTokenRaw(params.collateralUsd, marketInfo.collateralDecimals)
