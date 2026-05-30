@@ -93,7 +93,7 @@ export function validateRiskUsd(riskUsd: number, usdcBalance: number): TradeBloc
 export function getTradeBlockButtonLabel(reason: TradeBlockReason | undefined): string {
   switch (reason) {
     case "insufficient_usdc":
-      return "Insufficient USDC balance"
+      return "Insufficient Arbitrum USDC"
     case "insufficient_eth":
       return "Insufficient ETH for network costs"
     case "existing_position":
@@ -123,7 +123,7 @@ export function getTradeBlockExplanation(
   const { riskUsd, usdcBalance, marketLabel, directionLabel } = ctx
   switch (reason) {
     case "insufficient_usdc":
-      return `This trade risks ${riskUsd.toFixed(2)} USDC, but your wallet has ${usdcBalance.toFixed(2)} USDC.`
+      return `This trade risks ${riskUsd.toFixed(2)} USDC, but EasyGMX sees ${usdcBalance.toFixed(2)} native USDC on Arbitrum. If your wallet shows a USDC balance, it may be legacy USDC.e, which this GMX V2 flow cannot use as collateral.`
     case "insufficient_eth":
       return "You need a small amount of ETH on Arbitrum for GMX network/execution costs."
     case "existing_position":
