@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { getGmxSdk } from "./gmxSdk"
 import { withGmxRetry } from "./gmxRetry"
-import { fetchCandles } from "./gmxCandles"
+import { fetchTrendCandles, type TrendPeriod } from "./gmxCandles"
 import { MARKET_LIST, USD_PRECISION, type MarketKey } from "./contracts"
 
 export interface EasyMarketCore {
@@ -53,8 +53,8 @@ function percentChange(current: number, previous: number): number {
   return ((current - previous) / previous) * 100
 }
 
-async function candleChange(marketKey: MarketKey, period: "4H" | "30D" | "1Y"): Promise<number> {
-  const candles = await fetchCandles(marketKey, period === "4H" ? "4h" : period)
+async function candleChange(marketKey: MarketKey, period: TrendPeriod): Promise<number> {
+  const candles = await fetchTrendCandles(marketKey, period)
   if (candles.length < 2) return 0
   const latest = candles[candles.length - 1]
   const previous = candles[0]

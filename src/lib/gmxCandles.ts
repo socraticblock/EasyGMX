@@ -30,6 +30,14 @@ const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number;
 
 export const TIMEFRAMES: Timeframe[] = ["1H", "1D", "1W", "1M", "3M", "1Y", "ALL"]
 
+export type TrendPeriod = "4H" | "30D" | "1Y"
+
+const TREND_CONFIG: Record<TrendPeriod, { apiTimeframe: string; limit: number; durationMs: number }> = {
+  "4H": { apiTimeframe: "5m", limit: 48, durationMs: 4 * HOUR },
+  "30D": { apiTimeframe: "1d", limit: 31, durationMs: 30 * DAY },
+  "1Y": { apiTimeframe: "1d", limit: 366, durationMs: 365 * DAY },
+}
+
 function parseCandleNumber(value: string): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : 0
@@ -52,6 +60,34 @@ export function getTimeframeLabel(timeframe: Timeframe): string {
     case "ALL":
       return "Full GMX history"
   }
+}
+
+export async function fetchTrendCandles(marketKey: MarketKey, period: TrendPeriod): Promise<EasyCandle[]> {
+  const market = MARKET_LIST.find((m) => m.key === marketKey)
+  if (!market) return []
+  const config = TREND_CONFIG[period]
+  const since = Date.now() - config.durationMs
+
+  const candles = await withGmxRetry(
+    () => getGmxSdk().fetchOhlcv({
+      symbol: market.apiSymbol,
+      timeframe: config.apiTimeframe,
+      limit: config.limit,
+      since,
+    }),
+    { label: `Trend candles ${market.symbol} ${period}` }
+  )
+
+  return candles
+    .map((c) => ({
+      time: Math.floor(c.timestamp / 1000),
+      open: parseCandleNumber(c.open),
+      high: parseCandleNumber(c.high),
+      low: parseCandleNumber(c.low),
+      close: parseCandleNumber(c.close),
+    }))
+    .filter((c) => c.close > 0)
+    .sort((a, b) => a.time - b.time)
 }
 
 export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): Promise<EasyCandle[]> {
