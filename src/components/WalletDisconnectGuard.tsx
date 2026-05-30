@@ -11,6 +11,7 @@ export function WalletDisconnectGuard({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const isE2EStatePreview =
+      process.env.NODE_ENV !== "production" &&
       typeof window !== "undefined" &&
       Boolean((window as Window & { __EASYGMX_E2E_STATE_PREVIEW__?: boolean }).__EASYGMX_E2E_STATE_PREVIEW__)
     if (isE2EStatePreview) return
