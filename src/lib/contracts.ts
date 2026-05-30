@@ -52,6 +52,7 @@ export const MARKETS = {
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? "https://arb1.arbitrum.io/rpc"
 export const API_BASE = "https://arbitrum-api.gmxinfra.io"
 export const API_V2_BASE = "https://arbitrum.gmxapi.io/v1"
+export const GMX_SUBSQUID_URL = "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql"
 export const ARBISCAN_URL = "https://arbiscan.io"
 
 // ─── Order types ───────────────────────────────────────────
