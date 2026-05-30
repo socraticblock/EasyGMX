@@ -21,7 +21,7 @@ const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number;
   "5m": { apiTimeframe: "5m", limit: 96, durationMs: 8 * HOUR },
   "15m": { apiTimeframe: "15m", limit: 96, durationMs: DAY },
   "1h": { apiTimeframe: "1h", limit: 168, durationMs: 7 * DAY },
-  "4h": { apiTimeframe: "5m", limit: 60, durationMs: 4 * HOUR },
+  "4h": { apiTimeframe: "4h", limit: 90, durationMs: 15 * DAY },
   "1D": { apiTimeframe: "1h", limit: 24, durationMs: DAY },
   "1W": { apiTimeframe: "4h", limit: 42, durationMs: 7 * DAY },
   "1M": { apiTimeframe: "4h", limit: 180, durationMs: 30 * DAY },
