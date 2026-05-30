@@ -81,13 +81,13 @@ export async function fetchEasyMarketsCore(): Promise<Record<MarketKey, EasyMark
     const availableShort = usd30ToNumber(ticker?.availableLiquidityShort)
     const isListed = marketInfo?.isDisabled === false || marketInfo?.isDisabled === undefined
     const hasTicker = !!ticker && price > 0
-    const hasLiquidity = availableLong > 0 && availableShort > 0
+    const hasAnyLiquidity = availableLong > 0 || availableShort > 0
 
     let unavailableReason: string | undefined
     if (!marketInfo) unavailableReason = "Market is not available from GMX right now."
     else if (!isListed) unavailableReason = "This market is temporarily unavailable on GMX."
     else if (!hasTicker) unavailableReason = "Price data is not available right now."
-    else if (!hasLiquidity) unavailableReason = "Liquidity is not available right now."
+    else if (!hasAnyLiquidity) unavailableReason = "Liquidity is not available right now."
 
     byKey[m.key] = {
       marketKey: m.key,
