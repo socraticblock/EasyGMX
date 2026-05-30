@@ -13,7 +13,7 @@ import {
   getTradeBlockButtonLabel,
   getTradeBlockExplanation,
 } from "@/lib/gmxQuote"
-import { useUsdcApproval, useCreateOrder, userFacingGmxError } from "@/lib/order"
+import { useUsdcApproval, useCreateOrder, userFacingGmxError, type SupportedPayTokenAddress } from "@/lib/order"
 import { useUsdcBalance } from "@/hooks/useUsdcBalance"
 import { useEasyMarkets } from "@/lib/gmxMarketData"
 import { findMatchingPosition, useEasyPositions } from "@/lib/gmxPositions"
@@ -32,6 +32,10 @@ function formatUsd(n: number): string {
   return n.toFixed(6)
 }
 
+function payTokenLabel(tokenAddress: SupportedPayTokenAddress): string {
+  return tokenAddress.toLowerCase() === TOKENS.USDCe.toLowerCase() ? "USDC.e" : "USDC"
+}
+
 const CHART_HEIGHT = "clamp(170px, 30vw, 500px)"
 
 export function TradeSetupScreen() {
@@ -42,11 +46,12 @@ export function TradeSetupScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [approveAll, setApproveAll] = useState(false)
   const [showRiskAck, setShowRiskAck] = useState(false)
+  const [payTokenAddress, setPayTokenAddress] = useState<SupportedPayTokenAddress>(TOKENS.USDC)
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
   const { balance, legacyBalance, isLoading: balanceLoading } = useUsdcBalance(address)
-  const { data: ethBalance } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
+  const { data: ethBalance, isLoading: ethBalanceLoading } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
   const { data: markets, dataUpdatedAt: marketsUpdatedAt, refetch: refetchMarkets, isFetching: marketsFetching } = useEasyMarkets()
   const { data: executionFee } = useGmxExecutionFee(store.selectedMarket)
   const ethUsdPrice = markets?.["ETH/USD"]?.price
@@ -56,6 +61,10 @@ export function TradeSetupScreen() {
   const isLong = direction === "up"
   const marketLabel = marketInfo?.symbol ?? "Market"
   const directionLabel = direction === "up" ? "Price Up" : "Price Down"
+  const walletReady = isConnected && chainId === ARBITRUM_CHAIN_ID
+  const payTokenIsLegacy = payTokenAddress.toLowerCase() === TOKENS.USDCe.toLowerCase()
+  const selectedPayBalance = payTokenIsLegacy ? legacyBalance : balance
+  const selectedPayLabel = payTokenLabel(payTokenAddress)
   const hasExistingSameDirectionPosition = !!(marketInfo && walletPositions && findMatchingPosition(walletPositions, {
     marketAddress: marketInfo.address,
     isLong,
@@ -65,7 +74,7 @@ export function TradeSetupScreen() {
     direction,
     riskUsd,
     leverage,
-    usdcBalance: balance.value,
+    usdcBalance: selectedPayBalance.value,
     ethBalance: ethBalance ? Number(ethBalance.value) / 1e18 : 0,
     executionFeeEth: executionFee?.eth,
     ethUsdPrice,
@@ -76,17 +85,30 @@ export function TradeSetupScreen() {
     : null
   const executionFeeEth = executionFee?.eth ?? DEFAULT_EXECUTION_FEE_ETH
   const collateralRaw = BigInt(Math.round(riskUsd * 1e6))
-  const approval = useUsdcApproval(collateralRaw, approveAll)
+  const approval = useUsdcApproval(collateralRaw, approveAll, payTokenAddress)
   const createOrder = useCreateOrder()
 
-  const walletReady = isConnected && chainId === ARBITRUM_CHAIN_ID
+  const balancesReady = walletReady && !balanceLoading && !ethBalanceLoading
   const quoteAgeMs = marketsUpdatedAt ? Date.now() - marketsUpdatedAt : 0
   const quoteIsStale = walletReady && !!quote && quoteAgeMs > 90_000
-  const canTrade = !!(quote?.canTrade && walletReady && !quoteIsStale)
-  const quoteBlocked = walletReady && quote && !quote.canTrade
+  const canTrade = !!(quote?.canTrade && balancesReady && !quoteIsStale)
+  const quoteBlocked = balancesReady && quote && !quote.canTrade
   const showApproval = canTrade && !approval.loadingAllowance && approval.needsApproval
   const showOpenTrade = canTrade && !approval.loadingAllowance && !approval.needsApproval
   const isBusy = store.orderPhase === "approval" || store.orderPhase === "signing" || createOrder.isPending
+
+  useEffect(() => {
+    if (!walletReady || balanceLoading) return
+    const nativeEnough = balance.value >= riskUsd
+    const legacyEnough = legacyBalance.value >= riskUsd
+    if (!nativeEnough && legacyEnough) {
+      setPayTokenAddress(TOKENS.USDCe)
+      return
+    }
+    if (!legacyEnough && nativeEnough) {
+      setPayTokenAddress(TOKENS.USDC)
+    }
+  }, [walletReady, balanceLoading, balance.value, legacyBalance.value, riskUsd])
 
   const primaryConnector =
     connectors.find((c) => c.id === "injected" || c.type === "injected") ?? connectors[0]
@@ -100,10 +122,10 @@ export function TradeSetupScreen() {
   }
 
   const effectiveBlockReason = quoteIsStale ? "stale_quote" : quote?.blockReason
-  const quoteBlockExplanation = walletReady && quote && effectiveBlockReason
+  const quoteBlockExplanation = balancesReady && quote && effectiveBlockReason
     ? getTradeBlockExplanation(effectiveBlockReason, {
         riskUsd,
-        usdcBalance: balance.value,
+        usdcBalance: selectedPayBalance.value,
         marketLabel,
         directionLabel,
       })
@@ -135,7 +157,7 @@ export function TradeSetupScreen() {
       await approval.approveAsync()
       store.setOrderPhase("idle")
     } catch (err) {
-      store.setOrderError(userFacingGmxError(err, "USDC approval failed. Try again in your wallet."))
+      store.setOrderError(userFacingGmxError(err, `${selectedPayLabel} approval failed. Try again in your wallet.`))
       store.setOrderPhase("idle")
     }
   }
@@ -153,9 +175,11 @@ export function TradeSetupScreen() {
       const result = await createOrder.mutateAsync({
         marketKey: quote.marketKey,
         isLong: quote.isLong,
+        leverage: quote.leverage,
         collateralUsd: quote.riskUsd,
         sizeUsd: quote.sizeUsd,
         currentPrice: quote.estimatedEntryPrice,
+        payTokenAddress,
       })
 
       store.setOrderPhase("keeper")
@@ -186,9 +210,9 @@ export function TradeSetupScreen() {
   }
 
   const approvalLabel = (() => {
-    if (store.orderPhase === "approval") return "Approving USDC..."
-    if (approveAll) return "Allow GMX to use USDC"
-    return `Allow GMX to use ${formatUsdcAmount(riskUsd)} USDC`
+    if (store.orderPhase === "approval") return `Approving ${selectedPayLabel}...`
+    if (approveAll) return `Allow GMX to use ${selectedPayLabel}`
+    return `Allow GMX to use ${formatUsdcAmount(riskUsd)} ${selectedPayLabel}`
   })()
   const tradeLabel = (() => {
     if (store.orderPhase === "signing" || createOrder.isPending) return "Check wallet..."
@@ -234,6 +258,15 @@ export function TradeSetupScreen() {
             Switch your wallet to Arbitrum to trade on GMX V2.
           </p>
         </div>
+      ) : balanceLoading || ethBalanceLoading ? (
+        <div>
+          <button type="button" disabled className="trade-action-btn trade-action-btn--checking">
+            Checking wallet balances...
+          </button>
+          <p className="trade-block-explanation">
+            EasyGMX is checking native USDC, bridged USDC.e, and ETH for execution costs.
+          </p>
+        </div>
       ) : !quote ? (
         <div>
           <button type="button" disabled className="trade-action-btn trade-action-btn--blocked">
@@ -263,16 +296,18 @@ export function TradeSetupScreen() {
         <>
           <div className="trade-risk-strip">
             <p className="trade-risk-strip-main">
-              Risk: You can lose your full {formatUsdcAmount(riskUsd)} USDC risk amount.
+              Risk: You can lose your full {formatUsdcAmount(riskUsd)} {selectedPayLabel} risk amount.
             </p>
             <p className="trade-risk-strip-sub">
-              EasyGMX simplifies the interface; it does not remove GMX trading risk.
+              {payTokenIsLegacy
+                ? "EasyGMX will ask GMX to route bridged USDC.e into the native-USDC market collateral. Review the route in your wallet."
+                : "EasyGMX simplifies the interface; it does not remove GMX trading risk."}
             </p>
           </div>
 
           {approval.loadingAllowance && (
             <button type="button" disabled className="trade-action-btn trade-action-btn--checking">
-              Checking USDC allowance...
+              Checking {selectedPayLabel} allowance...
             </button>
           )}
 
@@ -294,7 +329,7 @@ export function TradeSetupScreen() {
               {showAdvanced && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
                   <input type="checkbox" checked={approveAll} onChange={(e) => setApproveAll(e.target.checked)} />
-                  Allow GMX to use USDC for future trades.
+                  Allow GMX to use {selectedPayLabel} for future trades.
                 </label>
               )}
             </div>
@@ -397,24 +432,39 @@ export function TradeSetupScreen() {
               </div>
 
               <div className="trade-ticket-section">
-                <div className="trade-ticket-section-title">2. USDC risk</div>
+                <div className="trade-ticket-section-title">2. Pay with USDC</div>
                 <div className="flex justify-between items-center gap-2 mb-2">
-                  <p className="text-sm font-medium">How much USDC are you willing to put at risk?</p>
+                  <p className="text-sm font-medium">Which Arbitrum USDC should EasyGMX use?</p>
                   <span className="text-[11px] text-muted-foreground shrink-0">
-                    {balanceLoading ? "Loading..." : `${balance.value.toFixed(2)} USDC`}
+                    {balanceLoading ? "Loading..." : `${selectedPayBalance.value.toFixed(2)} ${selectedPayLabel}`}
                   </span>
                 </div>
                 {walletReady && (
-                  <div className="mb-3 rounded-xl border border-[#1e1e30] bg-[#12121a]/70 p-3 text-[11px] leading-relaxed text-muted-foreground">
-                    <p>Arbitrum USDC available for GMX: <span className="font-mono text-foreground">{balance.formatted}</span></p>
-                    {legacyBalance.value > 0 && (
-                      <>
-                        <p>Legacy USDC.e detected: <span className="font-mono text-amber-400">{legacyBalance.formatted}</span></p>
-                        <p>GMX V2 uses native Arbitrum USDC for this flow.</p>
-                      </>
-                    )}
+                  <div className="mb-3 rounded-xl border border-[#1e1e30] bg-[#12121a]/70 p-3 text-[11px] leading-relaxed text-muted-foreground space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPayTokenAddress(TOKENS.USDC)}
+                        className={`rounded-lg border px-3 py-2 text-left transition-colors ${!payTokenIsLegacy ? "border-[#418cf5]/35 bg-[#418cf5]/12 text-foreground" : "border-[#1e1e30] bg-[#0a0a0f] hover:border-[#418cf5]/20"}`}
+                      >
+                        <span className="block font-semibold">Native USDC</span>
+                        <span className="block font-mono">{balance.formatted}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayTokenAddress(TOKENS.USDCe)}
+                        className={`rounded-lg border px-3 py-2 text-left transition-colors ${payTokenIsLegacy ? "border-[#418cf5]/35 bg-[#418cf5]/12 text-foreground" : "border-[#1e1e30] bg-[#0a0a0f] hover:border-[#418cf5]/20"}`}
+                      >
+                        <span className="block font-semibold">Bridged USDC.e</span>
+                        <span className="block font-mono">{legacyBalance.formatted}</span>
+                      </button>
+                    </div>
+                    <p>
+                      Native USDC uses the direct GMX path. Bridged USDC.e uses GMX routing into the native-USDC market collateral.
+                    </p>
                   </div>
                 )}
+                <p className="text-sm font-medium mb-2">How much {selectedPayLabel} are you willing to put at risk?</p>
                 <div className="grid grid-cols-4 gap-2">
                   {[10, 25, 50, 100].map((v) => (
                     <button
@@ -477,8 +527,12 @@ export function TradeSetupScreen() {
                     <span className="trade-review-value">{marketInfo?.symbol} {directionLabel}</span>
                   </div>
                   <div className="trade-review-row">
-                    <span className="trade-review-label">Risk</span>
-                    <span className="trade-review-value">{formatUsdcAmount(riskUsd)} USDC</span>
+                    <span className="trade-review-label">Pay with</span>
+                    <span className="trade-review-value">{formatUsdcAmount(riskUsd)} {selectedPayLabel}</span>
+                  </div>
+                  <div className="trade-review-row">
+                    <span className="trade-review-label">GMX collateral</span>
+                    <span className="trade-review-value">Native USDC</span>
                   </div>
                   <div className="trade-review-row">
                     <span className="trade-review-label">Position size</span>
@@ -494,7 +548,7 @@ export function TradeSetupScreen() {
                   </div>
                   <div className="trade-review-row">
                     <span className="trade-review-label">Max you can lose</span>
-                    <span className="trade-review-value trade-review-value--loss">{formatUsdcAmount(riskUsd)} USDC</span>
+                    <span className="trade-review-value trade-review-value--loss">{formatUsdcAmount(riskUsd)} {selectedPayLabel}</span>
                   </div>
                   {feeBreakdown && (
                     <div className="trade-review-row">
@@ -530,6 +584,7 @@ export function TradeSetupScreen() {
                     <p>Powered by GMX V2. No extra EasyGMX trading fee.</p>
                     <p>Borrow rate: {quote.borrowRate?.toFixed(6) ?? "-"}%</p>
                     <p>Funding rate: {quote.fundingRate?.toFixed(6) ?? "-"}%</p>
+                    {payTokenIsLegacy && <p>USDC.e route: GMX will calculate the required swap/route before accepting the order.</p>}
                   </div>
                 )}
               </div>
