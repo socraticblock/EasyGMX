@@ -14,7 +14,7 @@ const POLL_INTERVAL_MS = 5_000
 
 export function OrderPendingScreen() {
   const { address } = useAccount()
-  const { activePosition, orderPhase, setOrderPhase, updateActivePosition } = useTradeStore()
+  const { activePosition, orderPhase, setOrderPhase, updateActivePosition, reset } = useTradeStore()
   const { data: positions } = useEasyPositions(address, activePosition)
   const [startedAt, setStartedAt] = useState(() => Date.now())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -86,6 +86,7 @@ export function OrderPendingScreen() {
                 {activePosition?.openTxHash && <a href={arbiscanTxLink(activePosition.openTxHash)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 min-h-11 rounded-xl bg-[#12121a] border border-[#1e1e30] text-sm text-[#418cf5] hover:border-[#418cf5]/30 transition-colors">View transaction &rarr;</a>}
                 <button type="button" onClick={handleContinueChecking} className="min-h-11 rounded-xl bg-[#418cf5] text-white font-semibold text-sm transition-all active:scale-[0.98]">Continue checking</button>
                 <a href={GMX_APP_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center min-h-11 rounded-xl bg-[#12121a] border border-[#1e1e30] text-sm text-muted-foreground hover:text-foreground hover:border-[#418cf5]/30 transition-colors">Open GMX &rarr;</a>
+                <button type="button" onClick={reset} className="min-h-11 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors">I checked GMX, return home</button>
               </>
             )}
           </div>

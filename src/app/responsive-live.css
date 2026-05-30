@@ -32,7 +32,8 @@
   position: sticky;
   bottom: 0;
   z-index: 20;
-  margin-inline: calc(var(--screen-pad-x) * -1);
+  box-sizing: border-box;
+  margin-inline: 0;
   padding: 12px var(--screen-pad-x) calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(148, 163, 184, 0.12);
   background: #0a0a0f;

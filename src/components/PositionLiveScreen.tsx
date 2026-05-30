@@ -1,7 +1,7 @@
 "use client"
 
 import { useAccount } from "wagmi"
-import { useEffect, useCallback, useState } from "react"
+import { useEffect, useCallback, useRef, useState } from "react"
 import { useTradeStore } from "@/lib/store"
 import { useClosePosition, userFacingGmxError, arbiscanTxLink } from "@/lib/order"
 import { MARKET_LIST, TOKENS } from "@/lib/contracts"
@@ -44,6 +44,7 @@ export function PositionLiveScreen() {
   const { data: markets } = useEasyMarkets()
   const [closeStartedAt, setCloseStartedAt] = useState<number | null>(null)
   const [showCloseReview, setShowCloseReview] = useState(false)
+  const missingClosePollsRef = useRef(0)
 
   const marketInfo = MARKET_LIST.find((m) => m.key === activePosition?.marketKey)
 
@@ -71,6 +72,12 @@ export function PositionLiveScreen() {
   useEffect(() => {
     if (!activePosition || closePhase !== "keeper" || !positions || !activePosition.closeTxHash) return
     const stillOpen = findMatchingPosition(positions, activePosition)
+    if (stillOpen) {
+      missingClosePollsRef.current = 0
+      return
+    }
+    missingClosePollsRef.current += 1
+    if (missingClosePollsRef.current < 2) return
     if (!stillOpen) {
       setLastClosedTrade(closedTradeFromPosition(activePosition))
       setActivePosition(null)
@@ -104,6 +111,7 @@ export function PositionLiveScreen() {
         collateralToken: TOKENS.USDC,
         currentPrice: activePosition.currentPrice,
       })
+      missingClosePollsRef.current = 0
       updateActivePosition({ closeTxHash: result.txHash })
       setCloseStartedAt(Date.now())
       setClosePhase("keeper")

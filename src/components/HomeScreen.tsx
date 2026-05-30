@@ -18,6 +18,7 @@ import {
 import { WalletButton } from "@/components/WalletButton"
 import { useTradeStore } from "@/lib/store"
 import { ARBITRUM_CHAIN_ID } from "@/lib/contracts"
+import { useEasyPositions } from "@/lib/gmxPositions"
 
 function EasyGmxLogo() {
   return (
@@ -124,12 +125,14 @@ const TRUST_ITEMS = [
 ] as const
 
 export function HomeScreen() {
-  const { startEthTrade, openMarketPicker } = useTradeStore()
-  const { isConnected, chainId } = useAccount()
+  const { startEthTrade, openMarketPicker, setActivePosition, setOrderPhase } = useTradeStore()
+  const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
+  const { data: walletPositions } = useEasyPositions(isConnected && chainId === ARBITRUM_CHAIN_ID ? address : undefined)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const pendingEthTrade = useRef(false)
+  const detectedEthPosition = walletPositions?.find((p) => p.marketKey === "ETH/USD") ?? null
 
   const proceedToEthTrade = () => {
     startEthTrade()
@@ -159,6 +162,11 @@ export function HomeScreen() {
 
   const ctaDisabled = connectPending || switchPending
   const ctaLabel = connectPending ? "Connecting..." : switchPending ? "Switching..." : "Set up ETH trade"
+  const resumeDetectedPosition = () => {
+    if (!detectedEthPosition) return
+    setActivePosition(detectedEthPosition)
+    setOrderPhase("confirmed")
+  }
 
   return (
     <div className="home-lobby">
@@ -220,6 +228,21 @@ export function HomeScreen() {
               </p>
 
               <div className="lobby-actions">
+                {detectedEthPosition && (
+                  <div className="w-full rounded-xl border border-[#418cf5]/25 bg-[#418cf5]/10 p-3 text-left">
+                    <p className="text-sm font-semibold text-foreground">Open ETH position detected</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      EasyGMX found a live GMX position for this wallet.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={resumeDetectedPosition}
+                      className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#418cf5] px-4 text-sm font-semibold text-white transition-all active:scale-[0.98]"
+                    >
+                      Resume position
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
                   disabled={ctaDisabled}

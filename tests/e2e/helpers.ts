@@ -1,6 +1,12 @@
 import type { Page } from "@playwright/test"
 import { MARKETS } from "../../src/lib/contracts"
 
+declare global {
+  interface Window {
+    __EASYGMX_E2E_STATE_PREVIEW__?: boolean
+  }
+}
+
 export const VIEWPORTS = [
   { name: "320", width: 320, height: 568 },
   { name: "390", width: 390, height: 844 },
@@ -46,7 +52,10 @@ const MOCK_CLOSED_TRADE = {
 export async function resetAppState(page: Page) {
   await page.goto("/")
   await page.waitForFunction(() => window.__EASYGMX_E2E__?.reset)
-  await page.evaluate(() => window.__EASYGMX_E2E__!.reset())
+  await page.evaluate(() => {
+    window.__EASYGMX_E2E_STATE_PREVIEW__ = false
+    window.__EASYGMX_E2E__!.reset()
+  })
 }
 
 export async function showHome(page: Page) {
@@ -68,32 +77,42 @@ export async function showTradeSetup(page: Page) {
 
 export async function showPending(page: Page) {
   await resetAppState(page)
-  await page.evaluate(() =>
-    window.__EASYGMX_E2E__!.setState({
-      activePosition: { ...MOCK_POSITION, isOnChain: false },
-      orderPhase: "keeper",
-    }),
+  await page.evaluate(
+    (mockPosition) => {
+      window.__EASYGMX_E2E_STATE_PREVIEW__ = true
+      window.__EASYGMX_E2E__!.setState({
+        activePosition: { ...mockPosition, isOnChain: false },
+        orderPhase: "keeper",
+      })
+    },
+    MOCK_POSITION,
   )
   await page.waitForSelector("text=Opening your")
 }
 
 export async function showLivePosition(page: Page) {
   await resetAppState(page)
-  await page.evaluate(() =>
-    window.__EASYGMX_E2E__!.setState({
-      activePosition: MOCK_POSITION,
-      orderPhase: "confirmed",
-    }),
+  await page.evaluate(
+    (mockPosition) => {
+      window.__EASYGMX_E2E_STATE_PREVIEW__ = true
+      window.__EASYGMX_E2E__!.setState({
+        activePosition: mockPosition,
+        orderPhase: "confirmed",
+      })
+    },
+    MOCK_POSITION,
   )
-  await page.waitForSelector("text=Close full position")
+  await page.getByRole("button", { name: "Close full position" }).filter({ visible: true }).waitFor()
 }
 
 export async function showClosedTrade(page: Page) {
   await resetAppState(page)
-  await page.evaluate(() =>
-    window.__EASYGMX_E2E__!.setState({
-      lastClosedTrade: MOCK_CLOSED_TRADE,
-    }),
+  await page.evaluate(
+    (mockClosedTrade) =>
+      window.__EASYGMX_E2E__!.setState({
+        lastClosedTrade: mockClosedTrade,
+      }),
+    MOCK_CLOSED_TRADE,
   )
   await page.waitForSelector("text=Trade closed")
 }

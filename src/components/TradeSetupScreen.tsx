@@ -45,9 +45,9 @@ export function TradeSetupScreen() {
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
-  const { balance } = useUsdcBalance(address)
+  const { balance, legacyBalance, isLoading: balanceLoading } = useUsdcBalance(address)
   const { data: ethBalance } = useBalance({ address, chainId: ARBITRUM_CHAIN_ID })
-  const { data: markets } = useEasyMarkets()
+  const { data: markets, dataUpdatedAt: marketsUpdatedAt, refetch: refetchMarkets, isFetching: marketsFetching } = useEasyMarkets()
   const { data: executionFee } = useGmxExecutionFee(store.selectedMarket)
   const ethUsdPrice = markets?.["ETH/USD"]?.price
   const { data: walletPositions } = useEasyPositions(address)
@@ -80,7 +80,9 @@ export function TradeSetupScreen() {
   const createOrder = useCreateOrder()
 
   const walletReady = isConnected && chainId === ARBITRUM_CHAIN_ID
-  const canTrade = !!(quote?.canTrade && walletReady)
+  const quoteAgeMs = marketsUpdatedAt ? Date.now() - marketsUpdatedAt : 0
+  const quoteIsStale = walletReady && !!quote && quoteAgeMs > 90_000
+  const canTrade = !!(quote?.canTrade && walletReady && !quoteIsStale)
   const quoteBlocked = walletReady && quote && !quote.canTrade
   const showApproval = canTrade && !approval.loadingAllowance && approval.needsApproval
   const showOpenTrade = canTrade && !approval.loadingAllowance && !approval.needsApproval
@@ -97,8 +99,9 @@ export function TradeSetupScreen() {
     switchChain({ chainId: ARBITRUM_CHAIN_ID })
   }
 
-  const quoteBlockExplanation = quoteBlocked
-    ? getTradeBlockExplanation(quote.blockReason, {
+  const effectiveBlockReason = quoteIsStale ? "stale_quote" : quote?.blockReason
+  const quoteBlockExplanation = walletReady && quote && effectiveBlockReason
+    ? getTradeBlockExplanation(effectiveBlockReason, {
         riskUsd,
         usdcBalance: balance.value,
         marketLabel,
@@ -237,13 +240,23 @@ export function TradeSetupScreen() {
             Loading market...
           </button>
         </div>
-      ) : quoteBlocked ? (
+      ) : quoteBlocked || quoteIsStale ? (
         <div>
           <button type="button" disabled className="trade-action-btn trade-action-btn--blocked">
-            {getTradeBlockButtonLabel(quote.blockReason)}
+            {getTradeBlockButtonLabel(effectiveBlockReason)}
           </button>
           {quoteBlockExplanation && (
             <p className="trade-block-explanation">{quoteBlockExplanation}</p>
+          )}
+          {quoteIsStale && (
+            <button
+              type="button"
+              onClick={() => refetchMarkets()}
+              disabled={marketsFetching}
+              className="mt-2 w-full min-h-10 rounded-xl border border-[#418cf5]/25 bg-[#418cf5]/10 text-sm font-semibold text-[#418cf5] transition-colors hover:bg-[#418cf5]/15 disabled:opacity-60"
+            >
+              {marketsFetching ? "Refreshing..." : "Refresh quote"}
+            </button>
           )}
         </div>
       ) : (
@@ -387,8 +400,21 @@ export function TradeSetupScreen() {
                 <div className="trade-ticket-section-title">2. USDC risk</div>
                 <div className="flex justify-between items-center gap-2 mb-2">
                   <p className="text-sm font-medium">How much USDC are you willing to put at risk?</p>
-                  <span className="text-[11px] text-muted-foreground shrink-0">{balance.value.toFixed(2)} USDC</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">
+                    {balanceLoading ? "Loading..." : `${balance.value.toFixed(2)} USDC`}
+                  </span>
                 </div>
+                {walletReady && (
+                  <div className="mb-3 rounded-xl border border-[#1e1e30] bg-[#12121a]/70 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                    <p>Arbitrum USDC available for GMX: <span className="font-mono text-foreground">{balance.formatted}</span></p>
+                    {legacyBalance.value > 0 && (
+                      <>
+                        <p>Legacy USDC.e detected: <span className="font-mono text-amber-400">{legacyBalance.formatted}</span></p>
+                        <p>GMX V2 uses native Arbitrum USDC for this flow.</p>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-4 gap-2">
                   {[10, 25, 50, 100].map((v) => (
                     <button

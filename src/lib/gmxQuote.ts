@@ -8,6 +8,7 @@ export type TradeBlockReason =
   | "insufficient_eth"
   | "market_unavailable"
   | "existing_position"
+  | "stale_quote"
   | "invalid_risk_min"
   | "invalid_risk_max"
   | "invalid_risk"
@@ -98,6 +99,8 @@ export function getTradeBlockButtonLabel(reason: TradeBlockReason | undefined): 
       return "Insufficient ETH for network costs"
     case "existing_position":
       return "Existing same-direction position"
+    case "stale_quote":
+      return "Refresh quote"
     case "market_unavailable":
     case "liquidity":
     case "no_price":
@@ -128,6 +131,8 @@ export function getTradeBlockExplanation(
       return "You need a small amount of ETH on Arbitrum for GMX network/execution costs."
     case "existing_position":
       return `You already have an open ${marketLabel} ${directionLabel} position. Close it before opening another same-direction trade.`
+    case "stale_quote":
+      return "GMX prices and execution costs can move quickly. Refresh the quote before opening this trade."
     case "invalid_risk_min":
       return `Minimum risk is ${MIN_RISK_USD.toFixed(2)} USDC.`
     case "invalid_risk_max":
