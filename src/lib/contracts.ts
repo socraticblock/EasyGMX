@@ -22,9 +22,9 @@ export const CONTRACTS = {
 // ─── Tokens ────────────────────────────────────────────────
 
 export const TOKENS = {
-  USDC: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as const,  // 6 decimals
+  USDC: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as const,  // 6 decimals, native Arbitrum USDC
   WETH: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1" as const,  // 18 decimals
-  USDCe: "0xFF970A616C4449D6FaBA68550c9ef83fC09911b2" as const,  // 6 decimals (legacy)
+  USDCe: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8" as const, // 6 decimals, bridged/legacy Arbitrum USDC.e
   ARB: "0x912CE59144191C1204E64559FE8253a0e49E6548" as const,    // 18 decimals
   WBTC: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f" as const,   // 8 decimals
 } as const
@@ -112,10 +112,10 @@ export interface MarketInfo {
 }
 
 export const MARKET_LIST: MarketInfo[] = [
-  { key: "ETH/USD", address: MARKETS["ETH/USD"], symbol: "ETH", apiSymbol: "ETH/USD [WETH-USDC]", icon: "\u27E2", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "BTC/USD", address: MARKETS["BTC/USD"], symbol: "BTC", apiSymbol: "BTC/USD [BTC-USDC]", icon: "\u20BF", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "SOL/USD", address: MARKETS["SOL/USD"], symbol: "SOL", apiSymbol: "SOL/USD [SOL-USDC]", icon: "\u25CE", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
-  { key: "ARB/USD", address: MARKETS["ARB/USD"], symbol: "ARB", apiSymbol: "ARB/USD [ARB-USDC]", icon: "\u25C6", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "ETH/USD", address: MARKETS["ETH/USD"], symbol: "ETH", apiSymbol: "ETH/USD [WETH-USDC]", icon: "⟢", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "BTC/USD", address: MARKETS["BTC/USD"], symbol: "BTC", apiSymbol: "BTC/USD [BTC-USDC]", icon: "₿", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "SOL/USD", address: MARKETS["SOL/USD"], symbol: "SOL", apiSymbol: "SOL/USD [SOL-USDC]", icon: "◎", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
+  { key: "ARB/USD", address: MARKETS["ARB/USD"], symbol: "ARB", apiSymbol: "ARB/USD [ARB-USDC]", icon: "◆", collateralToken: TOKENS.USDC, collateralDecimals: 6 },
 ]
 
 /** V1 launch focus — ETH first; other perps de-emphasized until ETH path is proven stable. */
