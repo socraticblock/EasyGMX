@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi"
 import { ARBITRUM_CHAIN_ID } from "@/lib/contracts"
 
@@ -18,10 +18,32 @@ export function WalletButton({
   pill?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
   const { address, isConnected, chainId } = useAccount()
   const { connectors, connect, isPending: connectPending } = useConnect()
   const { disconnect } = useDisconnect()
   const { switchChain, isPending: switchPending } = useSwitchChain()
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (target && menuRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [menuOpen])
 
   const pillClass = pill
     ? `wallet-pill inline-flex items-center gap-2 ${className}`
@@ -49,11 +71,14 @@ export function WalletButton({
       : baseClass
 
     return (
-      <div className="relative">
+      <div ref={menuRef} className="relative z-[9999]">
         <button
           type="button"
           className={connectedClass}
-          onClick={() => setMenuOpen((open) => !open)}
+          onClick={(event) => {
+            event.stopPropagation()
+            setMenuOpen((open) => !open)
+          }}
           aria-expanded={menuOpen}
         >
           {showNetwork ? (
@@ -73,7 +98,10 @@ export function WalletButton({
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-[#1e1e30] bg-[#12121a] p-3 shadow-2xl">
+          <div
+            className="absolute right-0 z-[10000] mt-2 w-56 rounded-xl border border-[#1e1e30] bg-[#12121a] p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="space-y-1 border-b border-[#1e1e30] pb-3">
               <p className="text-[11px] text-muted-foreground">Connected wallet</p>
               <p className="font-mono text-xs text-foreground break-all">{address}</p>
