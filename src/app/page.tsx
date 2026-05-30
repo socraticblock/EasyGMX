@@ -15,9 +15,15 @@ export default function EasyGMX() {
   const { selectedMarket, activePosition, orderPhase, lastClosedTrade, showMarketPicker } = useTradeStore()
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+
     window.__EASYGMX_E2E__ = {
       reset: () => useTradeStore.getState().reset(),
       setState: (partial) => useTradeStore.setState(partial),
+    }
+
+    return () => {
+      delete window.__EASYGMX_E2E__
     }
   }, [])
 
