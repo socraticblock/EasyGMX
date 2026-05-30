@@ -13,6 +13,9 @@ import {
   DECREASE_POSITION_SWAP_TYPE,
   ARBITRUM_CHAIN_ID,
   ARBISCAN_URL,
+  RPC_URL,
+  API_BASE,
+  SLIPPAGE_BPS,
   type MarketKey,
   toUsd,
   toTokenRaw,
@@ -27,16 +30,36 @@ export interface OrderResult {
   txHash: Hash
 }
 
+export type SupportedPayTokenAddress = typeof TOKENS.USDC | typeof TOKENS.USDCe
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const
 
 const EXECUTION_FEE_ERROR_COPY =
   "Network / execution cost changed before GMX accepted the order. Please refresh the quote and try again."
 
+function payTokenLabel(tokenAddress: SupportedPayTokenAddress): string {
+  return tokenAddress.toLowerCase() === TOKENS.USDCe.toLowerCase() ? "USDC.e" : "USDC"
+}
+
+function normalizeHash(value: unknown): Hash | null {
+  if (typeof value === "string" && value.startsWith("0x")) return value as Hash
+  if (!value || typeof value !== "object") return null
+  const result = value as Record<string, unknown>
+  const direct = result.txHash ?? result.hash ?? result.transactionHash
+  if (typeof direct === "string" && direct.startsWith("0x")) return direct as Hash
+  const receipt = result.receipt
+  if (receipt && typeof receipt === "object") {
+    const hash = (receipt as Record<string, unknown>).transactionHash
+    if (typeof hash === "string" && hash.startsWith("0x")) return hash as Hash
+  }
+  return null
+}
+
 export function userFacingGmxError(err: unknown, fallback = "GMX could not complete this action. Try again or use GMX directly."): string {
   const message = err instanceof Error ? err.message : String(err ?? "")
   const lower = message.toLowerCase()
   if (lower.includes("user rejected") || lower.includes("user denied") || lower.includes("rejected")) return "Trade was cancelled in your wallet."
-  if (lower.includes("allowance") || lower.includes("approve")) return "Approval was cancelled. You need to approve USDC before starting this trade."
+  if (lower.includes("allowance") || lower.includes("approve")) return "Approval was cancelled. You need to approve the selected USDC token before starting this trade."
   if (lower.includes("insufficient funds") || lower.includes("exceeds balance")) return "You need a small amount of ETH on Arbitrum to pay network and execution costs."
   if (
     lower.includes("insufficientexecutionfee") ||
@@ -51,22 +74,28 @@ export function userFacingGmxError(err: unknown, fallback = "GMX could not compl
     return EXECUTION_FEE_ERROR_COPY
   }
   if (lower.includes("acceptableprice") || lower.includes("price")) return "Price moved too quickly. Please review the trade and try again."
+  if (lower.includes("route") || lower.includes("swap path") || lower.includes("swap")) return "GMX could not route the selected USDC token into this trade. Try native Arbitrum USDC or a smaller amount."
   return fallback
 }
 
-export function useUsdcApproval(amountRaw: bigint, approveAll = false) {
+export function useUsdcApproval(
+  amountRaw: bigint,
+  approveAll = false,
+  tokenAddress: SupportedPayTokenAddress = TOKENS.USDC,
+) {
   const { address } = useAccount()
   const { data: walletClient } = useWalletClient()
   const publicClient = usePublicClient({ chainId: ARBITRUM_CHAIN_ID })
   const queryClient = useQueryClient()
   const approvalAmount = approveAll ? MAX_UINT256 : amountRaw
+  const tokenLabel = payTokenLabel(tokenAddress)
 
   const { data: allowance, isLoading: loadingAllowance } = useQuery({
-    queryKey: ["usdcAllowance", address],
+    queryKey: ["usdcAllowance", address, tokenAddress],
     queryFn: async () => {
       if (!publicClient || !address) return 0n
       const a = await publicClient.readContract({
-        address: TOKENS.USDC,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: "allowance",
         args: [address, CONTRACTS.router],
@@ -87,7 +116,7 @@ export function useUsdcApproval(amountRaw: bigint, approveAll = false) {
       if (!walletClient || !address || !publicClient) throw new Error("Wallet not connected")
 
       const { request } = await publicClient.simulateContract({
-        address: TOKENS.USDC,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: "approve",
         args: [CONTRACTS.router, approvalAmount],
@@ -96,7 +125,7 @@ export function useUsdcApproval(amountRaw: bigint, approveAll = false) {
 
       const hash = await walletClient.writeContract(request)
       await publicClient.waitForTransactionReceipt({ hash })
-      await queryClient.invalidateQueries({ queryKey: ["usdcAllowance", address] })
+      await queryClient.invalidateQueries({ queryKey: ["usdcAllowance", address, tokenAddress] })
       return hash
     },
   })
@@ -109,6 +138,7 @@ export function useUsdcApproval(amountRaw: bigint, approveAll = false) {
     approvePending: approveMutation.isPending,
     approveError: approveMutation.error,
     approveReset: approveMutation.reset,
+    tokenLabel,
   }
 }
 
@@ -121,14 +151,57 @@ export function useCreateOrder() {
     mutationFn: async (params: {
       marketKey: MarketKey
       isLong: boolean
+      leverage: 5 | 10
       collateralUsd: number
       sizeUsd: number
       currentPrice: number
+      payTokenAddress?: SupportedPayTokenAddress
     }): Promise<OrderResult> => {
       if (!walletClient || !address || !publicClient) throw new Error("Wallet not connected")
 
       const marketInfo = MARKET_LIST.find((m) => m.key === params.marketKey)
       if (!marketInfo) throw new Error(`Unknown market: ${params.marketKey}`)
+
+      const payTokenAddress = params.payTokenAddress ?? TOKENS.USDC
+
+      if (payTokenAddress.toLowerCase() !== TOKENS.USDC.toLowerCase()) {
+        const sdkModule = await import("@gmx-io/sdk") as unknown as { GmxSdk?: new (config: Record<string, unknown>) => unknown }
+        const GmxSdk = sdkModule.GmxSdk
+        if (!GmxSdk) throw new Error("GMX SDK order helper is not available")
+
+        const sdk = new GmxSdk({
+          chainId: ARBITRUM_CHAIN_ID,
+          rpcUrl: RPC_URL,
+          oracleUrl: API_BASE,
+          publicClient,
+          walletClient,
+          account: address,
+        }) as {
+          setAccount?: (account: string) => void
+          orders?: {
+            long?: (args: Record<string, unknown>) => Promise<unknown>
+            short?: (args: Record<string, unknown>) => Promise<unknown>
+          }
+        }
+
+        sdk.setAccount?.(address)
+        const helper = params.isLong ? sdk.orders?.long : sdk.orders?.short
+        if (!helper) throw new Error("GMX routed order helper is not available")
+
+        const result = await helper({
+          payAmount: toTokenRaw(params.collateralUsd, 6),
+          marketAddress: marketInfo.address,
+          payTokenAddress,
+          collateralTokenAddress: TOKENS.USDC,
+          allowedSlippageBps: SLIPPAGE_BPS,
+          leverage: BigInt(params.leverage * 10_000),
+        })
+
+        const txHash = normalizeHash(result)
+        if (!txHash) throw new Error("GMX routed order did not return a transaction hash")
+        await publicClient.waitForTransactionReceipt({ hash: txHash })
+        return { orderKey: null, txHash }
+      }
 
       const collateralRaw = toTokenRaw(params.collateralUsd, marketInfo.collateralDecimals)
       const sizeRaw = toUsd(params.sizeUsd)
