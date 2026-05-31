@@ -232,7 +232,7 @@ export function MarketChart({
             </div>
             <div className="mt-1 text-[11px] text-muted-foreground">{getTimeframeLabel(timeframe)}</div>
           </div>
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-[#1e1e30] bg-[#0a0a0f]/70 p-1">
+          <div className="flex max-w-full flex-wrap justify-end gap-1 rounded-xl border border-[#1e1e30] bg-[#0a0a0f]/70 p-1">
             {TIMEFRAMES.map((t) => (
               <button type="button" key={t} onClick={() => onTimeframeChange(t)} className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all ${timeframe === t ? "bg-[#418cf5]/18 text-[#7bb3ff] shadow-[inset_0_0_0_1px_rgba(65,140,245,0.25)]" : "text-muted-foreground hover:bg-[#12121a] hover:text-foreground"}`}>
                 {t}
