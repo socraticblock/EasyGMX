@@ -3,7 +3,8 @@ import { getGmxSdk } from "./gmxSdk"
 import { withGmxRetry } from "./gmxRetry"
 import { MARKET_LIST, type MarketKey } from "./contracts"
 
-export type Timeframe = "1H" | "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL"
+export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1D" | "1W" | "1M" | "ALL"
+export type ChartTimeframeMode = Timeframe | "auto"
 
 export interface EasyCandle {
   time: number
@@ -19,16 +20,18 @@ const DAY = 24 * HOUR
 // User-facing ranges, not technical candle labels.
 // Keep point counts high enough to show real market history without overloading mobile.
 const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number; durationMs?: number }> = {
-  "1H": { apiTimeframe: "1m", limit: 90, durationMs: 90 * 60 * 1000 },
-  "1D": { apiTimeframe: "5m", limit: 288, durationMs: DAY },
-  "1W": { apiTimeframe: "1h", limit: 168, durationMs: 7 * DAY },
-  "1M": { apiTimeframe: "4h", limit: 180, durationMs: 30 * DAY },
-  "3M": { apiTimeframe: "1d", limit: 92, durationMs: 92 * DAY },
-  "1Y": { apiTimeframe: "1d", limit: 366, durationMs: 365 * DAY },
+  "1m": { apiTimeframe: "1m", limit: 720, durationMs: 12 * HOUR },
+  "5m": { apiTimeframe: "5m", limit: 864, durationMs: 3 * DAY },
+  "15m": { apiTimeframe: "15m", limit: 960, durationMs: 10 * DAY },
+  "1h": { apiTimeframe: "1h", limit: 1440, durationMs: 60 * DAY },
+  "4h": { apiTimeframe: "4h", limit: 2190, durationMs: 365 * DAY },
+  "1D": { apiTimeframe: "1d", limit: 1000 },
+  "1W": { apiTimeframe: "1d", limit: 1000 },
+  "1M": { apiTimeframe: "1d", limit: 1000 },
   ALL: { apiTimeframe: "1d", limit: 1000 },
 }
 
-export const TIMEFRAMES: Timeframe[] = ["1H", "1D", "1W", "1M", "3M", "1Y", "ALL"]
+export const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"]
 
 export type TrendPeriod = "4H" | "30D" | "1Y"
 
@@ -45,21 +48,45 @@ function parseCandleNumber(value: string): number {
 
 export function getTimeframeLabel(timeframe: Timeframe): string {
   switch (timeframe) {
-    case "1H":
-      return "Last hour"
+    case "1m":
+      return "1 minute candles"
+    case "5m":
+      return "5 minute candles"
+    case "15m":
+      return "15 minute candles"
+    case "1h":
+      return "1 hour candles"
+    case "4h":
+      return "4 hour candles"
     case "1D":
-      return "Last 24 hours"
+      return "Daily candles"
     case "1W":
-      return "Last 7 days"
+      return "Weekly candles"
     case "1M":
-      return "Last 30 days"
-    case "3M":
-      return "Last 3 months"
-    case "1Y":
-      return "Last year"
+      return "Monthly candles"
     case "ALL":
       return "Full GMX history"
   }
+}
+
+function aggregateCandles(candles: EasyCandle[], bucketMs: number): EasyCandle[] {
+  const buckets = new Map<number, EasyCandle>()
+
+  for (const candle of candles) {
+    const bucketTime = Math.floor((candle.time * 1000) / bucketMs) * bucketMs / 1000
+    const existing = buckets.get(bucketTime)
+
+    if (!existing) {
+      buckets.set(bucketTime, { ...candle, time: bucketTime })
+      continue
+    }
+
+    existing.high = Math.max(existing.high, candle.high)
+    existing.low = Math.min(existing.low, candle.low)
+    existing.close = candle.close
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => a.time - b.time)
 }
 
 export async function fetchTrendCandles(marketKey: MarketKey, period: TrendPeriod): Promise<EasyCandle[]> {
@@ -106,7 +133,7 @@ export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): 
     { label: `Candles ${market.symbol} ${timeframe}` }
   )
 
-  return candles
+  const parsed = candles
     .map((c) => ({
       time: Math.floor(c.timestamp / 1000),
       open: parseCandleNumber(c.open),
@@ -116,10 +143,14 @@ export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): 
     }))
     .filter((c) => c.close > 0)
     .sort((a, b) => a.time - b.time)
+
+  if (timeframe === "1W") return aggregateCandles(parsed, 7 * DAY)
+  if (timeframe === "1M") return aggregateCandles(parsed, 30 * DAY)
+  return parsed
 }
 
 export function useMarketCandles(marketKey: MarketKey | null, timeframe: Timeframe) {
-  const isLiveRange = timeframe === "1H" || timeframe === "1D"
+  const isLiveRange = timeframe === "1m" || timeframe === "5m" || timeframe === "15m" || timeframe === "1h"
 
   return useQuery({
     queryKey: ["gmxCandles", marketKey, timeframe],

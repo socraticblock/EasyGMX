@@ -402,6 +402,9 @@ export function TradeSetupScreen() {
                 marketKey={store.selectedMarket}
                 timeframe={chartTimeframe}
                 onTimeframeChange={store.setChartTimeframe}
+                screen="trade-setup"
+                previewEntryPrice={quote?.estimatedEntryPrice}
+                previewLiquidationPrice={quote?.liquidationPrice}
                 isLong={isLong}
                 chartHeight={CHART_HEIGHT}
               />
