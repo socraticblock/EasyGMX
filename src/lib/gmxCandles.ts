@@ -3,7 +3,7 @@ import { getGmxSdk } from "./gmxSdk"
 import { withGmxRetry } from "./gmxRetry"
 import { MARKET_LIST, type MarketKey } from "./contracts"
 
-export type Timeframe = "1H" | "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL"
+export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1D" | "1W" | "1M" | "ALL"
 
 export interface EasyCandle {
   time: number
@@ -13,22 +13,26 @@ export interface EasyCandle {
   close: number
 }
 
-const HOUR = 60 * 60 * 1000
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
+const WEEK = 7 * DAY
 
-// User-facing ranges, not technical candle labels.
-// Keep point counts high enough to show real market history without overloading mobile.
-const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number; durationMs?: number }> = {
-  "1H": { apiTimeframe: "1m", limit: 90, durationMs: 90 * 60 * 1000 },
-  "1D": { apiTimeframe: "5m", limit: 288, durationMs: DAY },
-  "1W": { apiTimeframe: "1h", limit: 168, durationMs: 7 * DAY },
-  "1M": { apiTimeframe: "4h", limit: 180, durationMs: 30 * DAY },
-  "3M": { apiTimeframe: "1d", limit: 92, durationMs: 92 * DAY },
-  "1Y": { apiTimeframe: "1d", limit: 366, durationMs: 365 * DAY },
-  ALL: { apiTimeframe: "1d", limit: 1000 },
+// Trading intervals users expect. We load much more history than the initially visible area
+// so dragging left does not immediately hit a hard edge.
+const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number; durationMs?: number; aggregate?: "week" | "month" }> = {
+  "1m": { apiTimeframe: "1m", limit: 720, durationMs: 12 * HOUR },
+  "5m": { apiTimeframe: "5m", limit: 864, durationMs: 3 * DAY },
+  "15m": { apiTimeframe: "15m", limit: 960, durationMs: 10 * DAY },
+  "1h": { apiTimeframe: "1h", limit: 1440, durationMs: 60 * DAY },
+  "4h": { apiTimeframe: "4h", limit: 2190, durationMs: 365 * DAY },
+  "1D": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY },
+  "1W": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY, aggregate: "week" },
+  "1M": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY, aggregate: "month" },
+  ALL: { apiTimeframe: "1d", limit: 2000 },
 }
 
-export const TIMEFRAMES: Timeframe[] = ["1H", "1D", "1W", "1M", "3M", "1Y", "ALL"]
+export const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M", "ALL"]
 
 export type TrendPeriod = "4H" | "30D" | "1Y"
 
@@ -43,22 +47,64 @@ function parseCandleNumber(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function normalizeCandles(candles: any[]): EasyCandle[] {
+  return candles
+    .map((c) => ({
+      time: Math.floor(c.timestamp / 1000),
+      open: parseCandleNumber(c.open),
+      high: parseCandleNumber(c.high),
+      low: parseCandleNumber(c.low),
+      close: parseCandleNumber(c.close),
+    }))
+    .filter((c) => c.close > 0)
+    .sort((a, b) => a.time - b.time)
+}
+
+function aggregateCandles(candles: EasyCandle[], mode?: "week" | "month"): EasyCandle[] {
+  if (!mode) return candles
+
+  const buckets = new Map<string, EasyCandle[]>()
+  for (const candle of candles) {
+    const date = new Date(candle.time * 1000)
+    const key = mode === "month"
+      ? `${date.getUTCFullYear()}-${date.getUTCMonth()}`
+      : `${date.getUTCFullYear()}-${Math.floor((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 1)) / WEEK)}`
+    buckets.set(key, [...(buckets.get(key) ?? []), candle])
+  }
+
+  return Array.from(buckets.values()).map((bucket) => {
+    const first = bucket[0]
+    const last = bucket[bucket.length - 1]
+    return {
+      time: first.time,
+      open: first.open,
+      high: Math.max(...bucket.map((c) => c.high)),
+      low: Math.min(...bucket.map((c) => c.low)),
+      close: last.close,
+    }
+  })
+}
+
 export function getTimeframeLabel(timeframe: Timeframe): string {
   switch (timeframe) {
-    case "1H":
-      return "Last hour"
+    case "1m":
+      return "1-minute chart · loaded 12 hours"
+    case "5m":
+      return "5-minute chart · loaded 3 days"
+    case "15m":
+      return "15-minute chart · loaded 10 days"
+    case "1h":
+      return "Hourly chart · loaded 60 days"
+    case "4h":
+      return "4-hour chart · loaded 1 year"
     case "1D":
-      return "Last 24 hours"
+      return "Daily chart · loaded long-term history"
     case "1W":
-      return "Last 7 days"
+      return "Weekly chart · long-term view"
     case "1M":
-      return "Last 30 days"
-    case "3M":
-      return "Last 3 months"
-    case "1Y":
-      return "Last year"
+      return "Monthly chart · long-term view"
     case "ALL":
-      return "Full GMX history"
+      return "All available daily history"
   }
 }
 
@@ -78,16 +124,7 @@ export async function fetchTrendCandles(marketKey: MarketKey, period: TrendPerio
     { label: `Trend candles ${market.symbol} ${period}` }
   )
 
-  return candles
-    .map((c) => ({
-      time: Math.floor(c.timestamp / 1000),
-      open: parseCandleNumber(c.open),
-      high: parseCandleNumber(c.high),
-      low: parseCandleNumber(c.low),
-      close: parseCandleNumber(c.close),
-    }))
-    .filter((c) => c.close > 0)
-    .sort((a, b) => a.time - b.time)
+  return normalizeCandles(candles)
 }
 
 export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): Promise<EasyCandle[]> {
@@ -106,20 +143,11 @@ export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): 
     { label: `Candles ${market.symbol} ${timeframe}` }
   )
 
-  return candles
-    .map((c) => ({
-      time: Math.floor(c.timestamp / 1000),
-      open: parseCandleNumber(c.open),
-      high: parseCandleNumber(c.high),
-      low: parseCandleNumber(c.low),
-      close: parseCandleNumber(c.close),
-    }))
-    .filter((c) => c.close > 0)
-    .sort((a, b) => a.time - b.time)
+  return aggregateCandles(normalizeCandles(candles), config.aggregate)
 }
 
 export function useMarketCandles(marketKey: MarketKey | null, timeframe: Timeframe) {
-  const isLiveRange = timeframe === "1H" || timeframe === "1D"
+  const isLiveRange = timeframe === "1m" || timeframe === "5m" || timeframe === "15m"
 
   return useQuery({
     queryKey: ["gmxCandles", marketKey, timeframe],
