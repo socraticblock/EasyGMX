@@ -19,17 +19,17 @@ const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 
 // Trading intervals users expect. We load much more history than the initially visible area
-// so dragging left does not immediately hit a hard edge.
+// so dragging left does not immediately hit a hard edge, while keeping single API calls sane.
 const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number; durationMs?: number; aggregate?: "week" | "month" }> = {
   "1m": { apiTimeframe: "1m", limit: 720, durationMs: 12 * HOUR },
   "5m": { apiTimeframe: "5m", limit: 864, durationMs: 3 * DAY },
   "15m": { apiTimeframe: "15m", limit: 960, durationMs: 10 * DAY },
-  "1h": { apiTimeframe: "1h", limit: 1440, durationMs: 60 * DAY },
-  "4h": { apiTimeframe: "4h", limit: 2190, durationMs: 365 * DAY },
-  "1D": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY },
-  "1W": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY, aggregate: "week" },
-  "1M": { apiTimeframe: "1d", limit: 1500, durationMs: 1500 * DAY, aggregate: "month" },
-  ALL: { apiTimeframe: "1d", limit: 2000 },
+  "1h": { apiTimeframe: "1h", limit: 1000, durationMs: 60 * DAY },
+  "4h": { apiTimeframe: "4h", limit: 1000, durationMs: 365 * DAY },
+  "1D": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY },
+  "1W": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY, aggregate: "week" },
+  "1M": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY, aggregate: "month" },
+  ALL: { apiTimeframe: "1d", limit: 1000 },
 }
 
 export const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M", "ALL"]
@@ -94,9 +94,9 @@ export function getTimeframeLabel(timeframe: Timeframe): string {
     case "15m":
       return "15-minute chart · loaded 10 days"
     case "1h":
-      return "Hourly chart · loaded 60 days"
+      return "Hourly chart · loaded up to 60 days"
     case "4h":
-      return "4-hour chart · loaded 1 year"
+      return "4-hour chart · loaded up to 1 year"
     case "1D":
       return "Daily chart · loaded long-term history"
     case "1W":
