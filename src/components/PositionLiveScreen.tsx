@@ -171,7 +171,9 @@ export function PositionLiveScreen() {
               marketKey={activePosition.marketKey}
               timeframe={liveChartTimeframe}
               onTimeframeChange={setLiveChartTimeframe}
+              screen="live-position"
               entryPrice={activePosition.entryPrice}
+              liquidationPrice={activePosition.liquidationPrice}
               isLong={isLong}
               chartHeight={CHART_HEIGHT}
             />

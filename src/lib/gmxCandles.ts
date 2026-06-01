@@ -4,6 +4,7 @@ import { withGmxRetry } from "./gmxRetry"
 import { MARKET_LIST, type MarketKey } from "./contracts"
 
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1D" | "1W" | "1M" | "ALL"
+export type ChartTimeframeMode = Timeframe | "auto"
 
 export interface EasyCandle {
   time: number
@@ -24,15 +25,15 @@ const TIMEFRAME_CONFIG: Record<Timeframe, { apiTimeframe: string; limit: number;
   "1m": { apiTimeframe: "1m", limit: 720, durationMs: 12 * HOUR },
   "5m": { apiTimeframe: "5m", limit: 864, durationMs: 3 * DAY },
   "15m": { apiTimeframe: "15m", limit: 960, durationMs: 10 * DAY },
-  "1h": { apiTimeframe: "1h", limit: 1000, durationMs: 60 * DAY },
-  "4h": { apiTimeframe: "4h", limit: 1000, durationMs: 365 * DAY },
+  "1h": { apiTimeframe: "1h", limit: 1440, durationMs: 60 * DAY },
+  "4h": { apiTimeframe: "4h", limit: 2190, durationMs: 365 * DAY },
   "1D": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY },
   "1W": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY, aggregate: "week" },
   "1M": { apiTimeframe: "1d", limit: 1000, durationMs: 1000 * DAY, aggregate: "month" },
   ALL: { apiTimeframe: "1d", limit: 1000 },
 }
 
-export const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M", "ALL"]
+export const TIMEFRAMES: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"]
 
 export type TrendPeriod = "4H" | "30D" | "1Y"
 
@@ -147,7 +148,7 @@ export async function fetchCandles(marketKey: MarketKey, timeframe: Timeframe): 
 }
 
 export function useMarketCandles(marketKey: MarketKey | null, timeframe: Timeframe) {
-  const isLiveRange = timeframe === "1m" || timeframe === "5m" || timeframe === "15m"
+  const isLiveRange = timeframe === "1m" || timeframe === "5m" || timeframe === "15m" || timeframe === "1h"
 
   return useQuery({
     queryKey: ["gmxCandles", marketKey, timeframe],
