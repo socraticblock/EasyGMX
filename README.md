@@ -130,3 +130,7 @@ This software opens real leveraged positions on GMX V2. You can lose your entire
 ## License
 
 MIT
+
+---
+
+More from me: **[socraticblock.com](https://www.socraticblock.com/)** — portfolio, case studies and engineering notes.
